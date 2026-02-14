@@ -1,0 +1,378 @@
+================================================================================
+RESUMEN COMPLETO - MANTENIMIENTO MAIL SERVER
+================================================================================
+
+Fecha: 31 de Diciembre del 2025
+Responsable: Diego Hermilo Guillen Garcia
+Servidor: mailserver (docker-mailserver) - refacrtb.com.mx
+
+================================================================================
+1. ANALISIS INICIAL DEL MAIL SERVER
+================================================================================
+
+ESTADO GENERAL
+--------------
+✓ Servidor operativo con 12 cuentas de correo
+✓ Dominio: refacrtb.com.mx
+✓ Puertos activos: 25 (SMTP), 587 (Submission), 993 (IMAPS)
+✓ Servicios funcionando: SpamAssassin, ClamAV, Fail2ban
+✓ SMTP Relay: MailerSend (smtp.mailersend.net:587)
+✓ SSL: Let's Encrypt
+
+CUENTAS DE CORREO
+-----------------
+1. contacto@refacrtb.com.mx
+2. ventas@refacrtb.com.mx
+3. finanzas@refacrtb.com.mx
+4. facturacion@refacrtb.com.mx
+5. almacen@refacrtb.com.mx
+6. recursos_humanos@refacrtb.com.mx
+7. sistemas@refacrtb.com.mx
+8. asistente@refacrtb.com.mx
+9. productos_especiales@refacrtb.com.mx
+10. gerente_general@refacrtb.com.mx
+11. angel_badmon@refacrtb.com.mx
+12. tbadillob@refacrtb.com.mx
+
+================================================================================
+2. REVISION DE LOGS Y SINCRONIZACION
+================================================================================
+
+RESULTADOS
+----------
+✓ Sin errores criticos de sincronizacion
+✓ Sin fallos de autenticacion de usuarios legitimos
+✓ Entregas SMTP funcionando correctamente
+✓ Verificacion DKIM/DMARC/SPF exitosa
+
+ADVERTENCIAS MENORES (NO CRITICAS)
+-----------------------------------
+⚠ Intentos de conexion de scanners/bots (bloqueados correctamente)
+⚠ Errores TLS/SSL de IPs externas (comportamiento normal)
+⚠ Rechazos de relay no autorizado (proteccion funcionando)
+
+================================================================================
+3. AUDITORIA Y CONFIGURACION DE FAIL2BAN
+================================================================================
+
+ESTADO INICIAL
+--------------
+Jail            IPs Bloqueadas    Total Baneos Historicos
+postfix         7 IPs             247
+dovecot         1 IP              122
+postfix-sasl    0 IPs             120
+custom          0 IPs             0
+
+IPS BLOQUEADAS INICIALES
+-------------------------
+- 165.154.174.206
+- 46.101.122.95
+- 152.32.243.98
+- 3.134.148.59 (AWS)
+- 3.137.73.221 (AWS)
+- 165.154.54.189
+- 23.92.30.251
+- 201.141.108.178 (Mexico)
+
+CONFIGURACION INICIAL
+----------------------
+bantime = 1w
+findtime = 1w
+maxretry = 6
+ignoreip = 127.0.0.1/8  (Solo localhost)
+
+================================================================================
+4. ACTUALIZACION DE WHITELIST FAIL2BAN
+================================================================================
+
+PROBLEMA IDENTIFICADO
+---------------------
+No habia IPs de redes privadas en whitelist, riesgo de bloquear clientes 
+legitimos.
+
+SOLUCION IMPLEMENTADA
+---------------------
+Whitelist actualizada:
+ignoreip = 127.0.0.1/8 ::1 192.168.0.0/24 201.141.108.178
+
+REDES PROTEGIDAS
+----------------
+- 127.0.0.1/8       Localhost IPv4
+- ::1               Localhost IPv6
+- 192.168.0.0/24    Red LAN completa (incluye 192.168.0.209)
+- 201.141.108.178   IP especifica agregada por solicitud
+
+PERSISTENCIA CONFIGURADA
+-------------------------
+Archivo creado:
+/opt/proyectos/rtb/mailserver/fail2ban/jail.local
+
+Docker-compose actualizado:
+volumes:
+  - ./fail2ban/jail.local:/etc/fail2ban/jail.local:ro
+
+Backup creado: docker-compose.yml.backup
+
+================================================================================
+5. LIMPIEZA DE IPS BLOQUEADAS
+================================================================================
+
+ACCIONES
+--------
+Comando ejecutado:
+sudo docker exec mailserver fail2ban-client unban --all
+
+Resultado: 8 IPs desbaneadas
+
+ESTADO FINAL DE JAILS
+----------------------
+Jail            IPs Bloqueadas    Estado
+postfix         0                 Limpio
+dovecot         0                 Limpio
+postfix-sasl    0                 Limpio
+custom          0                 Limpio
+
+================================================================================
+6. REINICIO Y VERIFICACION
+================================================================================
+
+REINICIO DEL CONTENEDOR
+------------------------
+sudo docker compose down
+sudo docker compose up -d
+
+VERIFICACION POST-REINICIO
+---------------------------
+✓ Whitelist persistente cargada correctamente
+✓ Fail2ban operativo con nueva configuracion
+✓ Todas las jails activas
+✓ Sin IPs bloqueadas inicialmente
+
+================================================================================
+7. DIAGNOSTICO DE CONFIGURACION UTF-8
+================================================================================
+
+ANALISIS REALIZADO
+------------------
+Configuracion MIME revisada:
+disable_mime_output_conversion = no  ✓
+mime_header_checks = $header_checks  ⚠
+
+HEADER CHECKS IDENTIFICADOS
+----------------------------
+- /etc/postfix/maps/header_checks.pcre (vacio)
+- /etc/postfix/maps/sender_header_filter.pcre (activo)
+
+REGLA PROBLEMATICA DETECTADA
+-----------------------------
+/^\s*Mime-Version: 1.0.*/  REPLACE MIME-Version: 1.0
+
+⚠ Esta regla reemplaza el header MIME-Version, podria afectar charset.
+
+ESTADO INICIAL UTF-8
+--------------------
+✗ smtputf8_enable = no
+⚠ Locale no configurado (salida vacia)
+✓ disable_mime_output_conversion = no
+✓ strict_8bitmime = no
+
+CAMBIOS APLICADOS
+-----------------
+sudo docker exec mailserver postconf -e "smtputf8_enable = yes"
+sudo docker exec mailserver postfix reload
+
+Resultado:
+smtputf8_enable = no  -->  smtputf8_enable = yes ✓
+
+ESTADO FINAL UTF-8
+------------------
+Parametro               Estado          Observacion
+SMTPUTF8                Habilitado      Soporte UTF-8 mejorado
+MIME Conversion         Habilitado      Sin conversion forzada
+8BITMIME                Permitido       Acepta 8bit
+Locale                  No configurado  Pendiente configurar
+
+================================================================================
+8. ARCHIVOS MODIFICADOS
+================================================================================
+
+CREADOS
+-------
+1. /opt/proyectos/rtb/mailserver/fail2ban/jail.local
+2. /opt/proyectos/rtb/mailserver/docker-compose.yml.backup
+3. /opt/proyectos/rtb/mailserver/config/fail2ban-jail.cf
+
+MODIFICADOS
+-----------
+1. docker-compose.yml - Agregado volumen fail2ban
+2. Postfix main.cf (dentro del contenedor) - smtputf8_enable = yes
+
+================================================================================
+9. RESULTADOS FINALES
+================================================================================
+
+SEGURIDAD - FAIL2BAN
+--------------------
+✓ Whitelist persistente configurada
+✓ Red local 192.168.0.0/24 protegida
+✓ IP especifica 201.141.108.178 en whitelist
+✓ Configuracion sobrevive reinicios
+✓ Todas las IPs desbaneadas
+
+CODIFICACION - UTF-8
+--------------------
+✓ SMTPUTF8 habilitado
+✓ MIME conversion sin restricciones
+⚠ Header filter con regla que podria causar problemas
+⚠ Locale pendiente de configurar
+
+OPERACION GENERAL
+-----------------
+✓ Servidor de correo funcionando correctamente
+✓ 12 cuentas activas
+✓ Sin errores criticos
+✓ Protecciones antispam/antivirus operativas
+
+================================================================================
+10. RECOMENDACIONES PENDIENTES
+================================================================================
+
+ALTA PRIORIDAD
+--------------
+1. Probar envio/recepcion de correos con caracteres especiales 
+   (a, e, i, o, u, n, Tomas, Mexico)
+2. Monitorear si los caracteres ahora se muestran correctamente
+
+MEDIA PRIORIDAD
+---------------
+3. Evaluar comentar/eliminar la regla de header filter:
+   /^\s*Mime-Version: 1.0.*/  REPLACE MIME-Version: 1.0
+
+4. Configurar locale persistente en mailserver.env:
+   LANG=es_MX.UTF-8
+   LC_ALL=es_MX.UTF-8
+
+BAJA PRIORIDAD
+--------------
+5. Monitoreo semanal de logs para patrones anomalos
+6. Revision mensual de IPs bloqueadas en Fail2ban
+7. Backup regular del directorio /opt/proyectos/rtb/mailserver/config/
+
+================================================================================
+11. COMANDOS UTILES PARA FUTURO
+================================================================================
+
+FAIL2BAN
+--------
+# Ver estado general
+sudo docker exec mailserver fail2ban-client status
+
+# Ver jail especifica
+sudo docker exec mailserver fail2ban-client status dovecot
+
+# Desbanear IP
+sudo docker exec mailserver fail2ban-client set dovecot unbanip <IP>
+
+# Ver whitelist
+sudo docker exec mailserver fail2ban-client get dovecot ignoreip
+
+# Desbanear todas las IPs
+sudo docker exec mailserver fail2ban-client unban --all
+
+POSTFIX UTF-8
+-------------
+# Ver configuracion SMTP UTF-8
+sudo docker exec mailserver postconf smtputf8_enable
+
+# Ver configuracion MIME
+sudo docker exec mailserver postconf | grep mime
+
+# Recargar Postfix
+sudo docker exec mailserver postfix reload
+
+# Ver configuracion completa
+sudo docker exec mailserver postconf -n
+
+LOGS
+----
+# Ver logs en tiempo real
+sudo docker logs -f mailserver
+
+# Buscar errores
+sudo docker logs mailserver --since 24h | grep -iE "error|failed|warning"
+
+# Ver logs de usuarios especificos
+sudo docker logs mailserver | grep -E "facturacion@|finanzas@"
+
+CONTENEDOR
+----------
+# Reiniciar contenedor
+sudo docker restart mailserver
+
+# Reiniciar con compose
+sudo docker compose down
+sudo docker compose up -d
+
+# Ver estado
+sudo docker ps -a | grep mailserver
+
+# Entrar al contenedor
+sudo docker exec -it mailserver bash
+
+================================================================================
+INFORMACION TECNICA
+================================================================================
+
+Sistema Operativo: Ubuntu Linux
+Plataforma: Docker
+Imagen: mailserver/docker-mailserver:latest
+Contenedor: mailserver
+Hostname: mail.refacrtb.com.mx
+
+Volumenes Montados:
+- /opt/proyectos/rtb/mailserver/config:/tmp/docker-mailserver/
+- /opt/proyectos/rtb/mailserver/mail-data:/var/mail/
+- /opt/proyectos/rtb/mailserver/mail-state:/var/mail-state/
+- /opt/proyectos/rtb/mailserver/fail2ban/jail.local:/etc/fail2ban/jail.local:ro
+- /etc/letsencrypt:/etc/letsencrypt:ro
+
+Puertos Expuestos:
+- 25:25     (SMTP)
+- 587:587   (Submission)
+- 993:993   (IMAPS)
+
+================================================================================
+RESUMEN EJECUTIVO
+================================================================================
+
+Duracion total del mantenimiento: ~2 horas
+Estado inicial: Operativo con necesidad de ajustes
+Estado final: Operativo con mejoras aplicadas
+
+MEJORAS IMPLEMENTADAS
+---------------------
+1. Configuracion de whitelist Fail2ban persistente
+2. Proteccion de red local contra baneos accidentales
+3. Habilitacion de soporte UTF-8 en SMTP
+4. Limpieza de IPs bloqueadas historicamente
+5. Creacion de backups de configuracion
+
+PROBLEMAS RESUELTOS
+-------------------
+1. Falta de whitelist para red local
+2. Soporte UTF-8 deshabilitado
+3. IPs bloqueadas innecesariamente
+4. Configuracion no persistente de Fail2ban
+
+TAREAS PENDIENTES
+-----------------
+1. Validar funcionamiento de caracteres especiales
+2. Configurar locale del sistema
+3. Evaluar reglas de header filter
+
+================================================================================
+FIN DEL REPORTE
+================================================================================
+Documento generado: 31/12/2025 19:07 UTC
+Responsable: Diego Hermilo Guillen Garcia
+Sistema: mailserver - refacrtb.com.mx

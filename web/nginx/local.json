@@ -1,0 +1,56 @@
+{
+  "services": {
+    "CoAuthoring": {
+      "sql": {
+        "type": "postgres",
+        "dbHost": "localhost",
+        "dbPort": "5432",
+        "dbName": "onlyoffice",
+        "dbUser": "onlyoffice",
+        "dbPass": "onlyoffice"
+      },
+      "token": {
+        "enable": {
+          "request": {
+            "inbox": true,
+            "outbox": true
+          },
+          "browser": true
+        },
+        "browser": {
+          "secret": "SuperSecretaJWT123456"
+        },
+        "inbox": {
+          "secret": "SuperSecretaJWT123456"
+        },
+        "outbox": {
+          "secret": "SuperSecretaJWT123456"
+        }
+      }
+    }
+  },
+  "rabbitmq": {
+    "url": "amqp://guest:guest@localhost"
+  },
+  "wopi": {
+    "enable": false,
+    "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDlwrKGJVv0KU4d\nxtTcfiJT76K+9m8+CE...",
+    "privateKeyOld": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDlwrKGJVv0KU4d\nxtTcfiJT76K+9m8...",
+    "publicKey": "BgIAAACkAABSU0ExAAgAAAEAAQCXqN7imQrbk/JF1IwXbGWXr9cIlx/iTkqgh1lhUc9C5AG0jYJEaHK0krRzIvuIwdgwNPA7SN54+Lyu3FrLd8qBi5...",
+    "publicKeyOld": "BgIAAACkAABSU0ExAAgAAAEAAQCXqN7imQrbk/JF1IwXbGWXr9cIlx/iTkqgh1lhUc9C5AG0jYJEaHK0krRzIvuIwdgwNPA7SN54+Lyu3FrLd8q...",
+    "modulus": "5cKyhiVb9ClOHcbU3H4iU++ivvZvPghKjXzaZ5bsYn1lcOfEtX+0LiUFOQUknv9MJtjwq9n3vsYngpaE1FpOIBfq2vp3aqVtQg2aoecVRJmeziIMzXDC...",
+    "modulusOld": "5cKyhiVb9ClOHcbU3H4iU++ivvZvPghKjXzaZ5bsYn1lcOfEtX+0LiUFOQUknv9MJtjwq9n3vsYngpaE1FpOIBfq2vp3aqVtQg2aoecVRJmeziIMz...",
+    "exponent": 65537,
+    "exponentOld": 65537
+  },
+  "storage": {
+    "fs": {
+      "secretString": "Tykxuy5OkWqcNwJ56Il9"
+    }
+  },
+  "request-filtering": {
+    "allowPrivateIPAddress": {
+      "enable": true
+    }
+  }
+}

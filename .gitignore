@@ -1,0 +1,35 @@
+
+# --- RTB: NO versionar datos/estado ---
+mailserver/mail-data/
+mailserver/mail-state/
+mailserver/mail-logs/
+mailserver/docker-data/
+mailserver/data/
+mailserver/state/
+mailserver/logs/
+
+# Postfix/Amavis/SpamAssassin runtime (por si cambian rutas)
+**/spool-postfix/
+**/lib-amavis/
+**/lib-spamassassin/
+**/.spamassassin/
+**/.pyzor/
+
+# Nextcloud data
+nextcloud/data/
+nextcloud/html/
+nextcloud/config/
+
+# DB data
+db/data/
+db/postgres-data/
+**/postgres-data/
+**/db-data/
+
+# Credenciales / secretos de mailserver
+mailserver/config/sasl_passwd
+mailserver/config/sasl_passwd.db
+mailserver/config/postfix-accounts.cf
+mailserver/config/dovecot-quotas.cf
+mailserver/config/*password*
+mailserver/config/*passwd*

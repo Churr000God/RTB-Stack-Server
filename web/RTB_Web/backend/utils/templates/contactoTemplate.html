@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Formulario de Contacto</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      color: #333;
+      background: #fff;
+    }
+
+    h1 {
+      color: #159895;
+      margin-bottom: 1.5rem;
+    }
+
+    p {
+      margin-bottom: 0.7rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #1a5f7a;
+    }
+
+    .box {
+      border: 1px solid #ccc;
+      padding: 1rem;
+      border-radius: 5px;
+      background: #f9f9f9;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nuevo Mensaje desde el Formulario de Contacto</h1>
+
+  <div class="box">
+    <p><span class="label">Nombre:</span> {{name}}</p>
+    <p><span class="label">Correo electrónico:</span> {{email}}</p>
+    <p><span class="label">Teléfono:</span> {{phone}}</p>
+    <p><span class="label">Asunto:</span> {{subject}}</p>
+  </div>
+
+  <div class="box">
+    <p><span class="label">Mensaje:</span></p>
+    <p>{{message}}</p>
+  </div>
+</body>
+</html>

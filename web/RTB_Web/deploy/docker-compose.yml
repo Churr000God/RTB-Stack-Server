@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  rtb_web:
+    image: nginx:1.25-alpine
+    container_name: rtb_web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - rtbnet
+    volumes:
+      # Sitio estático (esta repo)
+      - ../frontend:/usr/share/nginx/html:ro
+      # Configuración Nginx
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Certificados SSL (coloca tus archivos aquí o ajusta rutas)
+      - ./certs/www.refacrtb.com.mx/fullchain.pem:/etc/ssl/www.refacrtb.com.mx/fullchain.pem:ro
+      - ./certs/www.refacrtb.com.mx/privkey.pem:/etc/ssl/www.refacrtb.com.mx/privkey.pem:ro
+      - ./certs/nube.refacrtb.com.mx/fullchain.pem:/etc/ssl/nube.refacrtb.com.mx/fullchain.pem:ro
+      - ./certs/nube.refacrtb.com.mx/privkey.pem:/etc/ssl/nube.refacrtb.com.mx/privkey.pem:ro
+      - ./certs/office.refacrtb.com.mx/fullchain.pem:/etc/ssl/office.refacrtb.com.mx/fullchain.pem:ro
+      - ./certs/office.refacrtb.com.mx/privkey.pem:/etc/ssl/office.refacrtb.com.mx/privkey.pem:ro
+
+networks:
+  rtbnet:
+    external: true

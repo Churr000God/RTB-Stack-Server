@@ -1,0 +1,347 @@
+/* Archivo: rtb-header.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
+/* ========== HEADER GENERAL ========== */
+header {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  z-index: 50;
+background-color: var(--rtb-nav);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+
+/* ========== NAV CONTENEDOR FLEXIBLE ========== */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 1rem 2rem;
+  transition: padding 200ms ease;
+}
+
+/* ========== LOGO + TEXTO ========== */
+nav .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Enlace de marca: logo + texto clicable hacia inicio */
+nav .logo .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+nav .logo img {
+  height: 70px;
+  padding: 4px;
+  background-color: var(--rtb-white);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  object-fit: contain;
+  transition: height 200ms ease, box-shadow 200ms ease;
+}
+
+nav .logo span {
+  font-family: 'Pacifico', cursive;
+  font-size: 2rem;
+  font-weight: 200;
+  color: var(--rtb-gold);
+}
+
+/* ===== Slogan ===== */
+.header-desc {
+    color: var(--rtb-gold);
+    font-weight: bold;
+    font-size: 0.95rem;
+    max-width: 280px;
+}
+
+/* ========== LINKS DESKTOP ========== */
+.nav-links {
+  display: flex;
+  gap: 0rem;
+  align-items: center;
+}
+
+.nav-links a {
+  color: var(--rtb-white);
+  font-size: 1.2rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.nav-links a.active {
+  border-bottom: 2px solid var(--rtb-gold);
+  color: var(--rtb-gold);
+}
+
+.nav-links a:hover {
+  color: var(--rtb-white);
+  background-color: var(--rtb-gold);
+  padding: 0.5rem 1rem;
+  font-size: inherit; /* evitar saltos de layout */
+  border-radius: 0.375rem;
+  display: inline-block;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ========== BOTÓN CONTACTO (DESTACADO) ========== */
+.nav-links a.nav-contact,
+#mobile-menu a.nav-contact {
+  font-weight: 950;
+}
+
+/* ========== BOTÓN MENÚ MÓVIL ========== */
+#mobile-menu-button {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--rtb-white);
+  padding: 0.5rem;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#mobile-menu-button img {
+  width: 30px;
+  height: 30px;
+}
+
+#mobile-menu-button:hover {
+  background-color: var(--rtb-nav);
+  color: var(--rtb-black);
+}
+
+#mobile-menu-button:focus-visible {
+  outline: 3px solid var(--rtb-gold);
+  outline-offset: 3px;
+}
+
+/* ========== MENÚ MÓVIL ========== */
+#mobile-menu {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background-color: var(--rtb-white);
+  border-top: 1px solid #ddd;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 100%;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+#mobile-menu.open {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+#mobile-menu a {
+  padding: 0.75rem 0;
+  color: var(--rtb-dark);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+#mobile-menu a.active {
+  border-left: 4px solid var(--rtb-gold);
+  padding-left: 0.75rem;
+  color: var(--rtb-gold);
+}
+
+#mobile-menu a:hover {
+  background-color: var(--rtb-gold);
+  color: var(--rtb-white);
+  padding: 0.5rem;
+  font-size: inherit; /* evitar saltos de layout en móvil */
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.nav-links a:focus-visible,
+#mobile-menu a:focus-visible {
+  outline: 3px solid var(--rtb-gold);
+  outline-offset: 3px;
+  border-radius: 0.375rem;
+}
+
+/* ========== MEDIA QUERIES RESPONSIVO OPTIMIZADO ========== */
+
+/* Teléfonos: hasta 1024px */
+@media (max-width: 1024px) {
+  .nav-links {
+    display: none;
+  }
+
+  #mobile-menu-button {
+    display: block;
+  }
+
+  #mobile-menu.open {
+    display: flex;
+  }
+
+  nav .logo span {
+    font-size: 1rem;
+  }
+
+  .nav-links a {
+    font-size: 1rem;
+  }
+
+  nav {
+    padding: 1rem 1.5rem;
+  }
+
+  .header-desc{
+    font-size: 0.50rem;
+  }
+}
+
+/* Ocultar el slogan en pantallas muy pequeñas para ganar espacio */
+@media (max-width: 640px) {
+  .header-desc {
+    display: none;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  #mobile-menu {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Tablets: 1025px a 1279px */
+@media (min-width: 1025px) and (max-width: 1279px) {
+  .nav-links {
+    display: flex;
+  }
+
+  #mobile-menu {
+    display: none !important;
+  }
+
+  #mobile-menu-button {
+    display: none;
+  }
+
+  .nav-links a {
+    font-size: 0.80rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .nav-links a:hover{
+    font-size: inherit;
+  }
+
+
+  nav .logo span {
+    font-size: 1.6rem;
+  }
+
+  nav {
+    padding: 1rem 2rem;
+  }
+
+  .header-desc{
+    font-size: 0.70rem;
+  }
+}
+
+/* Computadoras: 1280px a 1919px */
+@media (min-width: 1280px) and (max-width: 1919px) {
+  .nav-links {
+    display: flex;
+  }
+
+  #mobile-menu {
+    display: none !important;
+  }
+
+  #mobile-menu-button {
+    display: none;
+  }
+
+  .nav-links a {
+    font-size: 1.05rem;
+    padding: 0.75rem 1rem;
+  }
+
+  nav .logo span {
+    font-size: 2rem;
+  }
+
+  nav {
+    padding: 1.25rem 2.5rem;
+  }
+}
+
+/* Estado contraído al hacer scroll: reduce padding y tamaño del logo */
+.navbar.scrolled nav {
+  padding: 0.75rem 1.5rem;
+}
+
+.navbar.scrolled nav .logo img {
+  height: 52px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.navbar.scrolled .header-desc {
+  opacity: 0.75;
+  transition: opacity 200ms ease;
+}
+
+/* Pantallas grandes: 1920px a 2499px */
+@media (min-width: 1920px) and (max-width: 2499px) {
+  .nav-links a {
+    font-size: 1.4rem;
+    padding: 0.75rem 1.25rem;
+  }
+
+  nav .logo span {
+    font-size: 2.2rem;
+  }
+
+  nav {
+    padding: 1.5rem 4rem;
+  }
+}
+
+/* Ultra resoluciones: 2500px en adelante */
+@media (min-width: 2500px) {
+  .nav-links a {
+    font-size: 1.6rem;
+    padding: 1rem 2rem;
+  }
+
+  nav .logo span {
+    font-size: 2.5rem;
+  }
+
+  nav {
+    padding: 2rem 5rem;
+  }
+}

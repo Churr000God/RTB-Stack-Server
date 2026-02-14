@@ -1,0 +1,114 @@
+# ─────────────────────────────────────────────────────────
+# 80 → 443 (redirecciones permanentes para todos los hostnames)
+# ─────────────────────────────────────────────────────────
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.refacrtb.com.mx nube.refacrtb.com.mx office.refacrtb.com.mx;
+    return 301 https://$host$request_uri;
+}
+
+# (Opcional) catch-all por si llega algún hostname no declarado
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    return 301 https://$host$request_uri;
+}
+
+# ─────────────────────────────────────────────────────────
+# www.refacrtb.com.mx (landing institucional)
+# ─────────────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.refacrtb.com.mx;
+
+    ssl_certificate     /etc/letsencrypt/live/www.refacrtb.com.mx/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www.refacrtb.com.mx/privkey.pem;
+
+    # HSTS (solo si TODOS tus subdominios tienen HTTPS)
+    add_header Strict-Transport-Security "max-age=15552000; includeSubDomains; preload" always;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+
+# ─────────────────────────────────────────────────────────
+# Nextcloud – nube.refacrtb.com.mx
+# ─────────────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name nube.refacrtb.com.mx;
+
+    ssl_certificate     /etc/letsencrypt/live/nube.refacrtb.com.mx/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/nube.refacrtb.com.mx/privkey.pem;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=15552000; includeSubDomains; preload" always;
+
+    # Tamaños/tiempos recomendados para WebDAV/Office
+    client_max_body_size 1024m;
+    proxy_read_timeout   3600;
+    proxy_connect_timeout 3600;
+    proxy_send_timeout    3600;
+
+    # Redirecciones CalDAV/CardDAV
+    location /.well-known/carddav { return 301 $scheme://$host/remote.php/dav; }
+    location /.well-known/caldav  { return 301 $scheme://$host/remote.php/dav; }
+    location ^~ /.well-known      { return 301 $scheme://$host/index.php$uri; }
+
+    # Proxy a contenedor Nextcloud
+    location / {
+        proxy_pass http://nextcloud:80;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;   # ¡forzado a https!
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Port  443;
+        proxy_set_header HTTPS "on";
+
+        # WebSocket/Upgrade
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}
+
+# ─────────────────────────────────────────────────────────
+# Collabora – office.refacrtb.com.mx
+# ─────────────────────────────────────────────────────────
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name office.refacrtb.com.mx;
+
+    ssl_certificate     /etc/letsencrypt/live/office.refacrtb.com.mx/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/office.refacrtb.com.mx/privkey.pem;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=15552000; includeSubDomains; preload" always;
+
+    location / {
+        proxy_pass http://collabora:9980;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    }
+}
+

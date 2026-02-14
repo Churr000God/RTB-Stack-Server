@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Refacciones Tomás Badillo | RTB</title>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+        <!-- Metadatos SEO -->
+        <meta name="description" content="Refacciones, plomería, grifería, iluminación y ferretería. Calidad y servicio en RTB." />
+        <meta name="robots" content="index,follow" />
+        <meta name="author" content="Refacciones Tomás Badillo" />
+        <meta name="theme-color" content="#0a4a9a" />
+
+        <!-- Open Graph / Social -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="RTB | Refacciones Tomás Badillo" />
+        <meta property="og:description" content="Entregamos confianza, no solo refacciones. Grifería, plomería, iluminación y ferretería." />
+        <meta property="og:image" content="/assets/img/inicio/img-hero.png" />
+        <meta property="og:locale" content="es_MX" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="RTB | Refacciones Tomás Badillo" />
+        <meta name="twitter:description" content="Entregamos confianza, no solo refacciones. Soluciones para tus proyectos." />
+
+        <!-- Preconexión y precarga optimizada -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+
+        <!-- Precarga de estilos críticos -->
+        <link rel="preload" as="style" href="/assets/css/rtb-header.css">
+        <link rel="preload" as="style" href="/assets/css/style.css">
+        <link rel="preload" as="style" href="/assets/css/rtb-footer.css">
+
+        <!-- Precarga de imagen LCP del hero -->
+        <link rel="preload" as="image" href="/assets/img/inicio/img-hero.png" fetchpriority="high">
+
+        <!-- Prefetch de componentes (header/footer) -->
+        <link rel="prefetch" href="/components/header.html" as="fetch" crossorigin>
+        <link rel="prefetch" href="/components/footer.html" as="fetch" crossorigin>
+
+        <!-- Estilos -->
+        <link rel="stylesheet" href="/assets/css/rtb-header.css" />
+        <link rel="stylesheet" href="/assets/css/style.css" />
+        <link rel="stylesheet" href="/assets/css/rtb-footer.css" />
+
+        <!-- JS -->
+        <script src="/assets/js/main.js" defer></script>
+        <script src="/assets/js/components/gallery.js" defer></script>
+
+        <!-- Datos estructurados básicos -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "HardwareStore",
+          "name": "Refacciones Tomás Badillo",
+          "url": "/pages/",
+          "description": "Refacciones, plomería, grifería, iluminación y ferretería.",
+          "areaServed": "MX"
+        }
+        </script>
+    </head>
+    
+    <body>
+        <!-- Contenedor para insertar el header -->
+        <div id="header-container"></div>
+
+        <main>
+            <!-- SECCION PRINCIPAL (HERO)-->
+            <section id="hero-container" class="rtb-hero">
+                <div class="rtb-hero-overlay"></div>
+                <div class="rtb-hero-content">
+                    <h1 class="rtb-hero-title">Refacciones Tomas Badillo S.A. de C.V.</h1>
+                    <h2 class="rtb-hero-subtitle">Entregamos confianza, no solo refacciones.</h2>
+                    <div class="rtb-hero-buttons">
+                        <a class="rtb-hero-button" href="/pages/productos.html">Ver Productos</a>
+                        <a class="rtb-hero-button" href="/pages/contacto.html">Contacto</a>
+                    </div>
+                </div>
+            </section>
+
+            <section id="categoria-productos" class="rtb-categoria-productos">
+            <div class="section-container">
+                <h2 class="section-title">NUESTRAS SOLUCIONES</h2>
+
+                <div class="card-group">
+                <!-- Grifería -->
+                <div class="card-productos">
+                    <img src="/assets/img/inicio/griferia-fondo.png" alt="Grifería" loading="lazy" decoding="async">
+                    <div class="layer"></div>
+                    <div class="info">
+                    <h1>Grifería</h1>
+                    <p>Sistemas de control de flujo de agua para baños, cocinas e instalaciones sanitarias especializadas.</p>
+                    <button onclick="location.href='/productos/griferia.html'">Más...</button>
+                    </div>
+                </div>
+
+                <!-- Plomería -->
+                <div class="card-productos">
+                    <img src="/assets/img/inicio/plomeria-fondo.png" alt="Plomería" loading="lazy" decoding="async">
+                    <div class="layer"></div>
+                    <div class="info">
+                    <h1>Plomería</h1>
+                    <p>Componentes esenciales para la conducción de agua potable, desagüe y ventilación.</p>
+                    <button onclick="location.href='/productos/plomeria.html'">Más...</button>
+                    </div>
+                </div>
+
+                <!-- Iluminación -->
+                <div class="card-productos">
+                    <img src="/assets/img/inicio/iluminacion-fondo.png" alt="Iluminación" loading="lazy" decoding="async">
+                    <div class="layer"></div>
+                    <div class="info">
+                    <h1>Iluminación</h1>
+                    <p>Soluciones eficientes para iluminación residencial, comercial y decorativa.</p>
+                    <button onclick="location.href='/productos/iluminacion.html'">Más...</button>
+                    </div>
+                </div>
+
+                <!-- Ferretería -->
+                <div class="card-productos">
+                    <img src="/assets/img/inicio/ferreteria-fondo.png" alt="Ferretería" loading="lazy" decoding="async">
+                    <div class="layer"></div>
+                    <div class="info">
+                    <h1>Ferretería</h1>
+                    <p>Herrajes, herramientas y accesorios metálicos para instalación y mantenimiento.</p>
+                    <button onclick="location.href='/productos/ferreteria.html'">Más...</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+            </section>
+
+            <!-- Servicio especial -->
+            <section id="servicio-especial" class="rtb-servicio-especial" aria-labelledby="servicio-especial-titulo">
+                <div class="servicio-container">
+                    <div class="servicio-content">
+                        <!-- Columna de la imagen -->
+                        <div class="servicio-imagen">
+                            <div class="imagen-container">
+                                <img src="/assets/img/inicio/MASCOTA_RTB.png"
+                                     width="800" height="800"
+                                     alt="Mascota RTB representando servicio especializado de búsqueda y entrega de refacciones"
+                                     class="imagen-foco" loading="lazy" decoding="async" fetchpriority="low" />
+                            </div>
+                        </div>
+                        
+                        <!-- Columna de texto -->
+                        <div class="servicio-texto">
+                            <h2 id="servicio-especial-titulo" class="servicio-titulo">
+                                <i class="fas fa-lightbulb" aria-hidden="true"></i>
+                                Servicio especial de búsqueda de refacciones
+                            </h2>
+                            <p class="servicio-parrafo">
+                                Nos especializamos en encontrar y gestionar cada pieza única y esencial para tus necesidades. Si no lo ves, ¡lo encontramos por ti!
+                            </p>
+                            
+                            <!-- Características como lista accesible -->
+                            <ul class="caracteristicas" role="list">
+                                <li class="caracteristica" role="listitem">
+                                    <i class="fas fa-search" aria-hidden="true"></i>
+                                    <span>Búsqueda personalizada</span>
+                                </li>
+                                <li class="caracteristica" role="listitem">
+                                    <i class="fas fa-bolt" aria-hidden="true"></i>
+                                    <span>Entrega rápida</span>
+                                </li>
+                                <li class="caracteristica" role="listitem">
+                                    <i class="fas fa-star" aria-hidden="true"></i>
+                                    <span>Calidad garantizada</span>
+                                </li>
+                                <li class="caracteristica" role="listitem">
+                                    <i class="fas fa-headset" aria-hidden="true"></i>
+                                    <span>Soporte dedicado</span>
+                                </li>
+                            </ul>
+                            
+                            <!-- CTA accesible -->
+                            <a class="rtb-pe" href="/pages/servicio-especial.html">
+                                <span>Conoce más</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="gallery-container" aria-label="Galería de marcas aliadas">
+                <h1>Nuestros Aliados</h1>
+                <div class="gallery" id="galleryContainer">
+                    <div class="slider-track" id="slider" aria-live="off"></div>
+                </div>
+            </section>
+
+            <div class="modal" id="modal" role="dialog" aria-modal="false" aria-hidden="true" aria-labelledby="modalTitle" aria-describedby="modalBody">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="modalTitle" class="modal-title">Título</h2>
+                        <button id="modalClose" class="modal-close" aria-label="Cerrar modal">
+                            <img
+                                src="https://img.icons8.com/material/24/close-window--v1.png"
+                                alt="Cerrar modal"
+                                width="24"
+                                height="24"
+                                style="display: block; margin: auto;"
+                            />
+                        </button>
+                    </div>
+                    <div id="modalBody" class="modal-body">
+                        <p>Contenido de la tarjeta</p>
+                    </div>
+                </div>
+            </div>
+
+        <noscript>
+            Esta página requiere JavaScript para cargar componentes (encabezado y pie). Por favor, habilítalo en tu navegador.
+        </noscript>
+
+        <!-- Contenedor para insertar el footer -->
+        <div id="footer-container"></div>
+
+    </body>
+</html>
+

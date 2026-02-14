@@ -1,0 +1,29 @@
+services:
+  mailserver:
+    image: mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: mail
+    domainname: refacrtb.com.mx
+    env_file: mailserver.env
+    ports:
+      - "25:25"
+      - "587:587"
+      - "993:993"
+    volumes:
+      - /opt/proyectos/rtb/mailserver/config/:/tmp/docker-mailserver/
+#      - /opt/proyectos/rtb/mailserver/dovecot/10-master.conf:/etc/dovecot/conf.d/10-master.conf
+      - ./config/sasl_passwd:/etc/postfix/sasl_passwd
+      - ./config/sasl_passwd.db:/etc/postfix/sasl_passwd.db
+      - ./mail-data/:/var/mail/
+      - ./mail-state/:/var/mail-state/
+      - ./config/:/tmp/docker-mailserver/
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    restart: always
+
+volumes:
+  mail-data:
+  mail-state:
+
