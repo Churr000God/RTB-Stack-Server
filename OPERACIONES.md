@@ -174,6 +174,54 @@ sudo tar czf /tmp/backup-config-$(date +%F).tar.gz \
   /opt/proyectos/rtb/mailserver/fail2ban
 ```
 
+## Git / acceso SSH a GitHub
+
+El usuario `rtbadmin` tiene una clave SSH (`~/.ssh/id_ed25519`, fingerprint `SHA256:aDPLhNGrEEL/iehPYpzcThlJyeoq7s3Qr/SufhYkl8s`) autorizada en `Churr000God/RTB-Stack-Server` como **RTB-Stack-Server**. La clave tiene passphrase.
+
+### Cómo está montado
+
+| Pieza | Ruta | Función |
+|---|---|---|
+| Servicio systemd user | `~/.config/systemd/user/ssh-agent.service` | Mantiene `ssh-agent` corriendo con socket fijo y lo reinicia si muere |
+| Socket fijo | `/run/user/1000/ssh-agent.socket` | Path conocido, no aleatorio por sesión |
+| Export en shell | `~/.bashrc` → `SSH_AUTH_SOCK=…` | Cada terminal nueva ve el agente automáticamente |
+| Config SSH | `~/.ssh/config` con `AddKeysToAgent yes` | Si el agente está vacío, carga la clave al primer uso |
+| Linger | `loginctl enable-linger rtbadmin` | El servicio sobrevive aunque se cierren todas las sesiones |
+
+### Operación diaria
+
+```bash
+# Estado del agente y claves cargadas
+systemctl --user status ssh-agent.service
+ssh-add -l
+
+# Probar autenticación contra GitHub
+ssh -T git@github.com   # debe responder "Hi Churr000God!..."
+
+# Pull/push normales
+cd /opt/proyectos/rtb && git pull
+cd /opt/proyectos/rtb && git push
+```
+
+### Cuándo se pide el passphrase
+
+- **Después de un reboot**: el agente arranca vacío. La primera operación SSH/git pedirá el passphrase una vez (gracias a `AddKeysToAgent yes`) y queda cargado hasta el próximo reinicio.
+- **Forzar carga manual** si hace falta:
+  ```bash
+  ssh-add ~/.ssh/id_ed25519
+  ```
+
+### Si deja de funcionar
+
+```bash
+# Reiniciar el agente
+systemctl --user restart ssh-agent.service
+ssh-add ~/.ssh/id_ed25519
+
+# Si SSH_AUTH_SOCK está vacío en una shell nueva, recargar bashrc
+source ~/.bashrc
+```
+
 ## Troubleshooting frecuente
 
 ### "No me puedo conectar al correo desde Thunderbird/Outlook"
