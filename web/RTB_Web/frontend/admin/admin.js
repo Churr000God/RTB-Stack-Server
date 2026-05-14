@@ -24,6 +24,11 @@
     fallo_crear: "No se pudo crear la cuenta.",
     fallo_actualizar: "No se pudo actualizar la contraseña.",
     fallo_eliminar: "No se pudo eliminar la cuenta.",
+    fallo_suspender: "No se pudo suspender el buzón.",
+    fallo_reactivar: "No se pudo reactivar el buzón.",
+    fallo_cuota: "No se pudo aplicar la cuota.",
+    fallo_vaciar: "No se pudo vaciar el buzón.",
+    cuota_invalida: "Formato de cuota inválido (ej: 5G, 500M, 0).",
     admin_no_configurado: "El panel no está configurado en el servidor.",
   };
   const msg = (key) => ERRORS[key] || key || "Error desconocido.";
@@ -110,21 +115,34 @@
       return;
     }
     if (!data.accounts.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No hay cuentas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay cuentas.</td></tr>`;
       return;
     }
-    tbody.innerHTML = data.accounts.map(a => `
-      <tr>
-        <td>${escapeHtml(a.email)}</td>
-        <td>${escapeHtml(a.usado)}</td>
-        <td>${escapeHtml(a.cuota)}</td>
-        <td>${a.porcentaje}%</td>
-        <td class="col-actions">
-          <button class="btn btn--small" data-action="pwd" data-email="${escapeHtml(a.email)}">Cambiar contraseña</button>
-          <button class="btn btn--small btn--danger" data-action="del" data-email="${escapeHtml(a.email)}">Eliminar</button>
-        </td>
-      </tr>
-    `).join("");
+    tbody.innerHTML = data.accounts.map(a => {
+      const e = escapeHtml(a.email);
+      const badge = a.suspended
+        ? `<span class="badge badge--off">Suspendida</span>`
+        : `<span class="badge badge--ok">Activa</span>`;
+      const toggleBtn = a.suspended
+        ? `<button class="btn btn--small" data-action="unsuspend" data-email="${e}">Reactivar</button>`
+        : `<button class="btn btn--small" data-action="suspend" data-email="${e}">Suspender</button>`;
+      return `
+        <tr class="${a.suspended ? "suspended" : ""}">
+          <td>${e}</td>
+          <td>${badge}</td>
+          <td>${escapeHtml(a.usado)}</td>
+          <td>${escapeHtml(a.cuota)}</td>
+          <td>${a.porcentaje}%</td>
+          <td class="col-actions">
+            <button class="btn btn--small" data-action="pwd" data-email="${e}">Contraseña</button>
+            <button class="btn btn--small" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}">Cuota</button>
+            ${toggleBtn}
+            <button class="btn btn--small btn--danger" data-action="empty" data-email="${e}">Vaciar</button>
+            <button class="btn btn--small btn--danger" data-action="del" data-email="${e}">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
   }
 
   function escapeHtml(s) {
@@ -136,8 +154,13 @@
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
     const email = btn.dataset.email;
-    if (btn.dataset.action === "pwd") openPwdModal(email);
-    if (btn.dataset.action === "del") openDelModal(email);
+    const action = btn.dataset.action;
+    if (action === "pwd") openPwdModal(email);
+    else if (action === "del") openDelModal(email);
+    else if (action === "quota") openQuotaModal(email, btn.dataset.cuota || "");
+    else if (action === "empty") openEmptyModal(email);
+    else if (action === "suspend") openSuspendModal(email);
+    else if (action === "unsuspend") openUnsuspendModal(email);
   });
 
   // ──────────── Modales: helpers ────────────
@@ -174,6 +197,7 @@
       closeModal("#createModal");
       flash(`Cuenta ${email} creada. Contraseña: ${password}`, "ok");
       loadAccounts();
+      setTimeout(loadAccounts, 2500);
     } else {
       $("#createError").textContent = msg(data.error);
     }
@@ -232,6 +256,118 @@
       loadAccounts();
     } else {
       $("#delError").textContent = msg(data.error);
+    }
+  });
+
+  // ──────────── Cuota ────────────
+  function openQuotaModal(email, currentQuota) {
+    $("#quotaEmail").textContent = email;
+    $("#quotaValue").value = currentQuota === "ilimitada" ? "" : currentQuota;
+    $("#quotaError").textContent = "";
+    $("#quotaForm").dataset.email = email;
+    openModal("#quotaModal");
+    setTimeout(() => $("#quotaValue").focus(), 50);
+  }
+  $("#quotaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#quotaError").textContent = "";
+    const email = $("#quotaForm").dataset.email;
+    const quota = $("#quotaValue").value.trim();
+    const { res, data } = await api(`${MAIL_API}/accounts/${encodeURIComponent(email)}/quota`, {
+      method: "PUT",
+      body: JSON.stringify({ quota }),
+    });
+    if (res.ok) {
+      closeModal("#quotaModal");
+      flash(`Cuota de ${email} = ${data.quota || quota || "sin límite"}`, "ok");
+      // dovecot tarda ~2s en reflejar la cuota en 'setup email list'
+      loadAccounts();
+      setTimeout(loadAccounts, 2500);
+    } else {
+      $("#quotaError").textContent = msg(data.error);
+    }
+  });
+
+  // ──────────── Vaciar buzón ────────────
+  function openEmptyModal(email) {
+    $("#emptyEmailLabel").textContent = email;
+    $("#emptyConfirm").value = "";
+    $("#emptyError").textContent = "";
+    $("#emptySubmit").disabled = true;
+    $("#emptyForm").dataset.email = email;
+    openModal("#emptyModal");
+    setTimeout(() => $("#emptyConfirm").focus(), 50);
+  }
+  $("#emptyConfirm").addEventListener("input", (e) => {
+    $("#emptySubmit").disabled = e.target.value !== $("#emptyForm").dataset.email;
+  });
+  $("#emptyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#emptyError").textContent = "";
+    const email = $("#emptyForm").dataset.email;
+    $("#emptySubmit").disabled = true;
+    $("#emptySubmit").textContent = "Vaciando…";
+    const { res, data } = await api(`${MAIL_API}/accounts/${encodeURIComponent(email)}/empty`, {
+      method: "POST",
+    });
+    $("#emptySubmit").textContent = "Vaciar";
+    if (res.ok) {
+      closeModal("#emptyModal");
+      flash(`Buzón de ${email} vaciado.`, "ok");
+      loadAccounts();
+    } else {
+      $("#emptyError").textContent = msg(data.error);
+      $("#emptySubmit").disabled = false;
+    }
+  });
+
+  // ──────────── Suspender ────────────
+  function openSuspendModal(email) {
+    $("#suspendEmail").textContent = email;
+    $("#suspendError").textContent = "";
+    $("#suspendForm").dataset.email = email;
+    openModal("#suspendModal");
+  }
+  $("#suspendForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#suspendError").textContent = "";
+    const email = $("#suspendForm").dataset.email;
+    const { res, data } = await api(`${MAIL_API}/accounts/${encodeURIComponent(email)}/suspend`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      closeModal("#suspendModal");
+      flash(`Buzón ${email} suspendido.`, "ok");
+      loadAccounts();
+    } else {
+      $("#suspendError").textContent = msg(data.error);
+    }
+  });
+
+  // ──────────── Reactivar ────────────
+  function openUnsuspendModal(email) {
+    $("#unsuspendEmail").textContent = email;
+    $("#unsuspendPwd").value = genPassword();
+    $("#unsuspendError").textContent = "";
+    $("#unsuspendForm").dataset.email = email;
+    openModal("#unsuspendModal");
+  }
+  $("#unsuspendGen").addEventListener("click", () => { $("#unsuspendPwd").value = genPassword(); });
+  $("#unsuspendForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#unsuspendError").textContent = "";
+    const email = $("#unsuspendForm").dataset.email;
+    const password = $("#unsuspendPwd").value;
+    const { res, data } = await api(`${MAIL_API}/accounts/${encodeURIComponent(email)}/unsuspend`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    if (res.ok) {
+      closeModal("#unsuspendModal");
+      flash(`Buzón ${email} reactivado. Nueva contraseña: ${password}`, "ok");
+      loadAccounts();
+    } else {
+      $("#unsuspendError").textContent = msg(data.error);
     }
   });
 

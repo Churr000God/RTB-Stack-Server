@@ -38,10 +38,17 @@ pm2 logs rtb_backend --err                       # solo errores
 Para operación del día a día, usa el panel web:
 
 - URL: **https://www.refacrtb.com.mx/admin/**
-- Permite: listar buzones (con cuota usada), crear, cambiar contraseña, eliminar.
+- Acciones disponibles: listar (con cuota usada y estado), crear, cambiar contraseña, definir cuota, vaciar correos, suspender/reactivar, eliminar.
 - Autenticación: contraseña única de admin (hash en `web/RTB_Web/backend/.env`).
 - Sesión: cookie httpOnly, expira a las 4 h de inactividad. Tras 5 intentos fallidos en 15 min se bloquea la IP.
 - Para rotar la contraseña del panel, regenerar el hash bcrypt y reemplazar `ADMIN_PASSWORD_HASH` en `.env`, luego `pm2 restart rtb_backend`.
+
+**Notas sobre el comportamiento:**
+
+- **Suspender** cambia la contraseña a una aleatoria y marca el buzón como `Suspendida` (estado guardado en `backend/data/mailbox-state.json`). El correo se preserva. **Reactivar** pide una contraseña nueva.
+- **Vaciar buzón** ejecuta `doveadm expunge -u <email> mailbox '*' all`: borra todos los correos en cualquier carpeta (INBOX, Sent, Drafts, Trash, etc.). Mantiene la estructura de carpetas y la cuenta activa. **Irreversible**.
+- **Cuota**: acepta sufijos `K`, `M`, `G`. Vacío o `0` = sin límite. Tras cambiarla, hay ~2 s de propagación hasta que `setup email list` la refleja; el panel hace doble refresh para mostrarla.
+- **Eliminar** borra el buzón **y todo su correo**. Doble confirmación tipeando el email. Si la cuenta es muy nueva (sin maildir creado aún), el backend pre-crea el directorio y reintenta automáticamente.
 
 Los comandos CLI siguen disponibles para emergencias o operaciones masivas:
 

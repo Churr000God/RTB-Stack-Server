@@ -229,24 +229,28 @@ El container actual de nginx fue creado a mano (no por un compose); el bind moun
 
 ## 🟠 Funcionalidad nueva
 
-### F1. Interfaz web para gestión de buzones de correo
+### F1. Interfaz web para gestión de buzones de correo ✅
 
-**Diagnóstico.** Hoy la única forma de crear, modificar contraseña o eliminar buzones es por SSH ejecutando `docker exec -ti mailserver setup email …`. Requiere acceso al servidor y conocimiento de comandos, lo que centraliza la operación en una sola persona.
+**Estado.** Implementado y desplegado en `https://www.refacrtb.com.mx/admin/` (2026-05-14).
 
-**Impacto.** Cuello de botella operativo. Errores de tipeo pueden borrar buzones por accidente. No hay registro auditable de quién hizo qué.
-
-**Propuesta.** Construir un panel web autenticado en `admin.refacrtb.com.mx` (o `www.refacrtb.com.mx/admin/correo`) con:
-- Listado de cuentas (email, cuota usada / asignada).
-- Crear cuenta nueva (email + contraseña inicial).
+**Acciones disponibles:**
+- Listar cuentas con cuota usada/asignada y estado (Activa/Suspendida).
+- Crear nuevo buzón (email + contraseña inicial).
 - Cambiar contraseña.
-- Eliminar cuenta (con confirmación doble).
-- Registro de cambios (log con usuario, acción, fecha).
+- Definir cuota (con sufijos K/M/G, o sin límite).
+- Vaciar todos los correos del buzón (preservando la cuenta y carpetas).
+- Suspender / Reactivar (estado persistido en `backend/data/mailbox-state.json`).
+- Eliminar (con doble confirmación tipeando el email).
 
-Backend: nuevas rutas REST en el `rtb_backend` Node existente que llaman a `docker exec mailserver setup email …`. El usuario `rtbadmin` ya está en el grupo `docker`, así que el backend Node necesita permisos al socket de Docker (o un script setuid acotado).
+**Backend:** rutas en `web/RTB_Web/backend/routes/{adminAuthRoutes,mailAdminRoutes}.js`.
+Invoca `docker exec mailserver setup email|quota` y `doveadm expunge` con `execFile` (sin shell), validación estricta de email/cuota/contraseña antes de cualquier ejecución.
 
-Seguridad: autenticación obligatoria (sesión + cookie httpOnly, password hasheado con bcrypt). Rate limiting para el endpoint de creación. CSRF token. Solo accesible vía HTTPS.
+**Seguridad:** bcrypt + express-session (cookie httpOnly secure, 4h), rate limit 5 intentos / 15 min por IP, dominio fijo `@refacrtb.com.mx` para creaciones.
 
-**Esfuerzo.** M (un día para MVP, día y medio con log de auditoría y validaciones robustas).
+**Pendientes / mejoras futuras:**
+- Log de auditoría con quién hizo qué y cuándo.
+- Suspensión que también deshabilite recepción (hoy solo bloquea login IMAP/SMTP).
+- Multi-admin con cuentas individuales (hoy es un solo admin compartido).
 
 ---
 
@@ -318,7 +322,7 @@ Seguridad: autenticación obligatoria (sesión + cookie httpOnly, password hashe
 - [ ] S2 — fail2ban `multiport` + ajustar bantime
 - [ ] O2 — eliminar `api_rtb` o moverlo a `api/app/`
 - [ ] O3 — añadir swap (5 min)
-- [ ] **F1 — interfaz web para gestión de buzones de correo** (en progreso)
+- [x] **F1 — interfaz web para gestión de buzones de correo** ✅
 
 ### Sprint 2 (próximas 2 semanas) — Resiliencia
 - [ ] O1 — backups con restic + Backblaze B2

@@ -36,3 +36,7 @@ mailserver/config/*passwd*
 
 # .env del backend (contiene ADMIN_PASSWORD_HASH y SESSION_SECRET)
 web/RTB_Web/backend/.env
+
+# Estado runtime del panel admin (cuentas suspendidas)
+web/RTB_Web/backend/data/*
+!web/RTB_Web/backend/data/.gitkeep

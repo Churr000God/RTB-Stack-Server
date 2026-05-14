@@ -42,6 +42,7 @@
           <thead>
             <tr>
               <th>Correo</th>
+              <th>Estado</th>
               <th>Usado</th>
               <th>Cuota</th>
               <th>%</th>
@@ -49,7 +50,7 @@
             </tr>
           </thead>
           <tbody id="accountsTbody">
-            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+            <tr><td colspan="6" class="muted">Cargando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -116,6 +117,77 @@
           <button type="submit" class="btn btn--danger" id="delSubmit" disabled>Eliminar</button>
         </div>
         <div class="error" id="delError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: cuota -->
+  <div id="quotaModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Definir cuota</h2>
+      <p>Cuenta: <strong id="quotaEmail"></strong></p>
+      <form id="quotaForm" autocomplete="off">
+        <label for="quotaValue">Tamaño</label>
+        <input id="quotaValue" type="text" placeholder="Ej: 5G, 500M, 0 = sin límite" pattern="(\d+[KMGkmg]?|0)?">
+        <div class="muted">Sufijos: K, M, G. Vacío o 0 = sin límite.</div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Aplicar</button>
+        </div>
+        <div class="error" id="quotaError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: vaciar buzón -->
+  <div id="emptyModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Vaciar buzón</h2>
+      <p>Esta acción <strong>borra TODOS los correos</strong> del buzón (Inbox, Sent, Drafts, Trash, etc.). El buzón se mantiene activo. No se puede deshacer.</p>
+      <p>Para confirmar, escribe el correo exacto: <strong id="emptyEmailLabel"></strong></p>
+      <form id="emptyForm" autocomplete="off">
+        <input id="emptyConfirm" type="text" required>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger" id="emptySubmit" disabled>Vaciar</button>
+        </div>
+        <div class="error" id="emptyError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: suspender -->
+  <div id="suspendModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Suspender buzón</h2>
+      <p>Cuenta: <strong id="suspendEmail"></strong></p>
+      <p>El buzón quedará inaccesible inmediatamente (se cambia la contraseña a una aleatoria). Los correos se preservan. Para reactivar, definirás una contraseña nueva.</p>
+      <form id="suspendForm" autocomplete="off">
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Suspender</button>
+        </div>
+        <div class="error" id="suspendError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: reactivar -->
+  <div id="unsuspendModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Reactivar buzón</h2>
+      <p>Cuenta: <strong id="unsuspendEmail"></strong></p>
+      <form id="unsuspendForm" autocomplete="off">
+        <label for="unsuspendPwd">Nueva contraseña</label>
+        <div class="pwd-row">
+          <input id="unsuspendPwd" type="text" minlength="8" required>
+          <button type="button" class="btn btn--ghost" id="unsuspendGen">Generar</button>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Reactivar</button>
+        </div>
+        <div class="error" id="unsuspendError"></div>
       </form>
     </div>
   </div>
