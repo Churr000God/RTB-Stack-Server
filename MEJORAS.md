@@ -8,30 +8,24 @@ Prioridad: 🔴 crítica · 🟠 alta · 🟡 media · 🟢 baja
 
 ## 🔴 Seguridad
 
-### S1. Rotar credenciales expuestas en chat y en el repo
+### S1. Sacar credenciales hardcoded del repo a `.env` (sin rotación)
 
-**Diagnóstico.** Durante esta sesión se compartieron en texto plano:
-- Contraseña de `sistemas@refacrtb.com.mx` (`Jul240725sistemas`)
-- API key SMTP de MailerSend (`MS_wU7zQN@... / k-pr$tujOwisW8`)
-
-Además, en `docker/docker-compose.yml` hay credenciales hardcoded:
+**Diagnóstico.** En `docker/docker-compose.yml` hay credenciales en texto plano:
 - Nextcloud admin: `admin / admin123`
 - PostgreSQL: `admin / securepass`
 - Collabora: `admin / adminpass`
 
-**Impacto.** Acceso administrativo total a Nextcloud, BD y suite de correo.
+> Nota: durante la sesión inicial se compartieron también la contraseña de `sistemas@refacrtb.com.mx` y el API token SMTP de MailerSend. Esa comunicación fue **interna** entre el operador y el asistente, no se expuso externamente, por lo que **no requiere rotación inmediata**. Aun así, sigue siendo buena higiene mantener esos secretos fuera del repo.
+
+**Impacto.** Si el repo se hace público o se filtra, acceso administrativo total a Nextcloud, BD y suite de correo.
 
 **Propuesta.**
-1. Cambiar la contraseña del buzón `sistemas@` desde Dovecot:
-   ```bash
-   docker exec -ti mailserver setup email update sistemas@refacrtb.com.mx
-   ```
-2. Revocar y regenerar el API token de MailerSend desde su panel.
-3. Cambiar `NEXTCLOUD_ADMIN_PASSWORD` (vía `occ user:resetpassword admin`).
-4. Cambiar `POSTGRES_PASSWORD` — requiere coordinar con Nextcloud (parar Nextcloud, alterar pass en pg, actualizar config.php, reiniciar).
-5. Mover los secretos a un `.env` fuera del repo y usar `env_file:` en compose, o adoptar Docker Secrets / SOPS.
+1. Crear `/opt/proyectos/rtb/.env` (fuera de git) con todas las contraseñas actuales.
+2. Referenciarlas en `docker-compose.yml` con `${VAR}` o `env_file:`.
+3. Añadir `.env` al `.gitignore` (ver H3).
+4. Opcional a medio plazo: adoptar Docker Secrets o SOPS para cifrado en repo.
 
-**Esfuerzo.** S (un par de horas si se hace todo en una ventana).
+**Esfuerzo.** S.
 
 ---
 
@@ -233,6 +227,29 @@ El container actual de nginx fue creado a mano (no por un compose); el bind moun
 
 ---
 
+## 🟠 Funcionalidad nueva
+
+### F1. Interfaz web para gestión de buzones de correo
+
+**Diagnóstico.** Hoy la única forma de crear, modificar contraseña o eliminar buzones es por SSH ejecutando `docker exec -ti mailserver setup email …`. Requiere acceso al servidor y conocimiento de comandos, lo que centraliza la operación en una sola persona.
+
+**Impacto.** Cuello de botella operativo. Errores de tipeo pueden borrar buzones por accidente. No hay registro auditable de quién hizo qué.
+
+**Propuesta.** Construir un panel web autenticado en `admin.refacrtb.com.mx` (o `www.refacrtb.com.mx/admin/correo`) con:
+- Listado de cuentas (email, cuota usada / asignada).
+- Crear cuenta nueva (email + contraseña inicial).
+- Cambiar contraseña.
+- Eliminar cuenta (con confirmación doble).
+- Registro de cambios (log con usuario, acción, fecha).
+
+Backend: nuevas rutas REST en el `rtb_backend` Node existente que llaman a `docker exec mailserver setup email …`. El usuario `rtbadmin` ya está en el grupo `docker`, así que el backend Node necesita permisos al socket de Docker (o un script setuid acotado).
+
+Seguridad: autenticación obligatoria (sesión + cookie httpOnly, password hasheado con bcrypt). Rate limiting para el endpoint de creación. CSRF token. Solo accesible vía HTTPS.
+
+**Esfuerzo.** M (un día para MVP, día y medio con log de auditoría y validaciones robustas).
+
+---
+
 ## 🟢 Mejoras opcionales
 
 ### M1. Reverse proxy: considerar Caddy o Traefik
@@ -297,10 +314,11 @@ El container actual de nginx fue creado a mano (no por un compose); el bind moun
 ## Plan sugerido por sprints
 
 ### Sprint 1 (esta semana) — Seguridad inmediata
-- [ ] S1 — rotar credenciales expuestas
+- [ ] S1 — mover credenciales de compose a `.env`
 - [ ] S2 — fail2ban `multiport` + ajustar bantime
 - [ ] O2 — eliminar `api_rtb` o moverlo a `api/app/`
 - [ ] O3 — añadir swap (5 min)
+- [ ] **F1 — interfaz web para gestión de buzones de correo** (en progreso)
 
 ### Sprint 2 (próximas 2 semanas) — Resiliencia
 - [ ] O1 — backups con restic + Backblaze B2

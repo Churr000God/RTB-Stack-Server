@@ -33,7 +33,19 @@ pm2 logs rtb_backend --err                       # solo errores
 
 ## Servidor de correo
 
-### Cuentas
+### Panel web de administración
+
+Para operación del día a día, usa el panel web:
+
+- URL: **https://www.refacrtb.com.mx/admin/**
+- Permite: listar buzones (con cuota usada), crear, cambiar contraseña, eliminar.
+- Autenticación: contraseña única de admin (hash en `web/RTB_Web/backend/.env`).
+- Sesión: cookie httpOnly, expira a las 4 h de inactividad. Tras 5 intentos fallidos en 15 min se bloquea la IP.
+- Para rotar la contraseña del panel, regenerar el hash bcrypt y reemplazar `ADMIN_PASSWORD_HASH` en `.env`, luego `pm2 restart rtb_backend`.
+
+Los comandos CLI siguen disponibles para emergencias o operaciones masivas:
+
+### Cuentas (CLI)
 
 ```bash
 # Listar cuentas y cuotas
@@ -172,6 +184,23 @@ sudo tar czf /tmp/backup-config-$(date +%F).tar.gz \
   /opt/proyectos/rtb/mailserver/mailserver.env \
   /opt/proyectos/rtb/mailserver/config \
   /opt/proyectos/rtb/mailserver/fail2ban
+```
+
+## Red: backend Node ↔ nginx
+
+El `rtb_backend` (Node, PM2) escucha en `0.0.0.0:3000` del host. nginx (contenedor `rtb_web` en la red `rtbnet`, bridge `172.25.0.0/16`) lo proxea desde `/api/`. Dos requisitos no obvios:
+
+1. **`proxy_pass http://172.25.0.1:3000/api/;`** en `nginx/default.conf`. La IP es el **gateway del bridge donde vive `rtb_web`**. La default `172.17.0.1` (docker0) no funciona porque docker0 está DOWN (ningún contenedor usa la red default). Si recreas `rtb_web` en otra red, ajusta esta IP: `docker inspect rtb_web --format '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}'`.
+
+2. **Regla UFW** abierta para el bridge:
+   ```bash
+   sudo ufw allow from 172.25.0.0/16 to any port 3000 proto tcp comment 'rtb_backend desde nginx'
+   ```
+   Sin esto, las conexiones del bridge al puerto 3000 del host quedan filtradas y nginx devuelve 504.
+
+Verificación rápida:
+```bash
+docker exec rtb_web curl -sf -m 3 http://172.25.0.1:3000/api/status && echo "OK"
 ```
 
 ## Git / acceso SSH a GitHub

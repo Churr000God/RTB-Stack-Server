@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Panel de administración · RTB</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__title">Panel RTB · Gestión de correo</div>
+    <div class="topbar__right">
+      <span id="who" class="topbar__who"></span>
+      <button id="logoutBtn" class="btn btn--ghost hidden">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section id="loginView" class="card hidden">
+      <h1>Acceso restringido</h1>
+      <p class="muted">Ingresa la contraseña de administración.</p>
+      <form id="loginForm" autocomplete="off">
+        <label for="pwd">Contraseña</label>
+        <input id="pwd" name="pwd" type="password" autocomplete="current-password" required>
+        <button class="btn btn--primary" type="submit">Entrar</button>
+        <div id="loginError" class="error"></div>
+      </form>
+    </section>
+
+    <section id="adminView" class="hidden">
+      <div class="row row--space">
+        <h1>Buzones de correo</h1>
+        <button id="newAccountBtn" class="btn btn--primary">+ Nuevo buzón</button>
+      </div>
+
+      <div id="flash" class="flash hidden"></div>
+
+      <div class="card">
+        <table class="accounts">
+          <thead>
+            <tr>
+              <th>Correo</th>
+              <th>Usado</th>
+              <th>Cuota</th>
+              <th>%</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="accountsTbody">
+            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: crear -->
+  <div id="createModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Crear nuevo buzón</h2>
+      <form id="createForm" autocomplete="off">
+        <label for="newEmailLocal">Correo</label>
+        <div class="email-input">
+          <input id="newEmailLocal" type="text" required pattern="[a-zA-Z0-9._-]+" placeholder="ejemplo">
+          <span>@refacrtb.com.mx</span>
+        </div>
+
+        <label for="newPwd">Contraseña inicial</label>
+        <div class="pwd-row">
+          <input id="newPwd" type="text" minlength="8" required>
+          <button type="button" class="btn btn--ghost" id="genPwd">Generar</button>
+        </div>
+        <div class="muted">Mínimo 8 caracteres. Compártela por un canal seguro.</div>
+
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Crear</button>
+        </div>
+        <div class="error" id="createError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: cambiar contraseña -->
+  <div id="pwdModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Cambiar contraseña</h2>
+      <p>Cuenta: <strong id="pwdEmail"></strong></p>
+      <form id="pwdForm" autocomplete="off">
+        <label for="pwdNew">Nueva contraseña</label>
+        <div class="pwd-row">
+          <input id="pwdNew" type="text" minlength="8" required>
+          <button type="button" class="btn btn--ghost" id="pwdGen">Generar</button>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Actualizar</button>
+        </div>
+        <div class="error" id="pwdError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: eliminar -->
+  <div id="delModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Eliminar buzón</h2>
+      <p>Esta acción <strong>borra el buzón y todo su correo</strong>. No se puede deshacer.</p>
+      <p>Para confirmar, escribe el correo exacto: <strong id="delEmailLabel"></strong></p>
+      <form id="delForm" autocomplete="off">
+        <input id="delConfirm" type="text" required>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger" id="delSubmit" disabled>Eliminar</button>
+        </div>
+        <div class="error" id="delError"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
