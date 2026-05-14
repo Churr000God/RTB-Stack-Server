@@ -107,11 +107,11 @@
   // ──────────── Listar cuentas ────────────
   async function loadAccounts() {
     const tbody = $("#accountsTbody");
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Cargando…</td></tr>`;
     const { res, data } = await api(`${MAIL_API}/accounts`);
     if (res.status === 401) return showLogin();
     if (!res.ok) {
-      tbody.innerHTML = `<tr><td colspan="5" class="error">${msg(data.error)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="error">${msg(data.error)}</td></tr>`;
       return;
     }
     if (!data.accounts.length) {
@@ -124,21 +124,23 @@
         ? `<span class="badge badge--off">Suspendida</span>`
         : `<span class="badge badge--ok">Activa</span>`;
       const toggleBtn = a.suspended
-        ? `<button class="btn btn--small" data-action="unsuspend" data-email="${e}">Reactivar</button>`
-        : `<button class="btn btn--small" data-action="suspend" data-email="${e}">Suspender</button>`;
+        ? `<button class="btn-icon btn-icon--ok" data-action="unsuspend" data-email="${e}" title="Reactivar buzón"><span class="ico">▶</span> Reactivar</button>`
+        : `<button class="btn-icon" data-action="suspend" data-email="${e}" title="Suspender buzón"><span class="ico">⏸</span> Suspender</button>`;
       return `
         <tr class="${a.suspended ? "suspended" : ""}">
-          <td>${e}</td>
+          <td class="col-email">${e}</td>
           <td>${badge}</td>
           <td>${escapeHtml(a.usado)}</td>
           <td>${escapeHtml(a.cuota)}</td>
           <td>${a.porcentaje}%</td>
           <td class="col-actions">
-            <button class="btn btn--small" data-action="pwd" data-email="${e}">Contraseña</button>
-            <button class="btn btn--small" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}">Cuota</button>
-            ${toggleBtn}
-            <button class="btn btn--small btn--danger" data-action="empty" data-email="${e}">Vaciar</button>
-            <button class="btn btn--small btn--danger" data-action="del" data-email="${e}">Eliminar</button>
+            <div class="actions">
+              <button class="btn-icon" data-action="pwd" data-email="${e}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Contraseña</button>
+              <button class="btn-icon" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}" title="Definir cuota"><span class="ico">\u{1F4CA}</span> Cuota</button>
+              ${toggleBtn}
+              <button class="btn-icon btn-icon--danger" data-action="empty" data-email="${e}" title="Vaciar correos"><span class="ico">\u{1F9F9}</span> Vaciar</button>
+              <button class="btn-icon btn-icon--danger" data-action="del" data-email="${e}" title="Eliminar buzón"><span class="ico">\u{1F5D1}</span> Eliminar</button>
+            </div>
           </td>
         </tr>
       `;
