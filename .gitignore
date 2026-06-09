@@ -40,3 +40,9 @@ web/RTB_Web/backend/.env
 # Estado runtime del panel admin (cuentas suspendidas)
 web/RTB_Web/backend/data/*
 !web/RTB_Web/backend/data/.gitkeep
+
+# Grafo de conocimiento generado por graphify (regenerable, no versionar)
+graphify-out/
+
+# Ajustes locales de Claude Code (contienen secretos en claro — NO versionar)
+.claude/settings.local.json
