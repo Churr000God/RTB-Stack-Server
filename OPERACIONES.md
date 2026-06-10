@@ -254,7 +254,7 @@ docker exec rtb_web curl -sf -m 3 http://172.25.0.1:3000/api/status && echo "OK"
 
 ## Git / acceso SSH a GitHub
 
-El usuario `rtbadmin` tiene una clave SSH (`~/.ssh/id_ed25519`, fingerprint `SHA256:aDPLhNGrEEL/iehPYpzcThlJyeoq7s3Qr/SufhYkl8s`) autorizada en `Churr000God/RTB-Stack-Server` como **RTB-Stack-Server**. La clave tiene passphrase.
+El usuario `rtbadmin` tiene una clave SSH (`~/.ssh/id_ed25519`, fingerprint `SHA256:AIp0Q8XAha8p8NRRs6Yg0mQLx6HK/YTZVtKP/WJnOGg`) autorizada en `Churr000God/RTB-Stack-Server`. **Sin passphrase** (regenerada el 2026-06-10 tras perderse la frase de la clave anterior; la clave vieja quedó respaldada como `~/.ssh/id_ed25519.bak.20260610` y su entrada debería retirarse de GitHub).
 
 ### Cómo está montado
 
@@ -281,13 +281,12 @@ cd /opt/proyectos/rtb && git pull
 cd /opt/proyectos/rtb && git push
 ```
 
-### Cuándo se pide el passphrase
+### Passphrase
 
-- **Después de un reboot**: el agente arranca vacío. La primera operación SSH/git pedirá el passphrase una vez (gracias a `AddKeysToAgent yes`) y queda cargado hasta el próximo reinicio.
-- **Forzar carga manual** si hace falta:
-  ```bash
-  ssh-add ~/.ssh/id_ed25519
-  ```
+La clave actual **no tiene passphrase**, así que `git pull/push` funcionan sin pedir nada (no
+depende del agente). Si en el futuro se le añade passphrase (`ssh-keygen -p -f ~/.ssh/id_ed25519`),
+vuelve a aplicar el flujo del agente: tras un reboot la primera operación la pedirá una vez
+(`AddKeysToAgent yes`) o se fuerza con `ssh-add ~/.ssh/id_ed25519`.
 
 ### Si deja de funcionar
 
