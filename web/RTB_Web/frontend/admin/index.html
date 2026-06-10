@@ -10,7 +10,12 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar__title">Panel RTB · Control de correo</div>
+    <div class="topbar__brand">
+      <span class="brand-badge">
+        <img src="/assets/img/comunes/logo_rtb.png" alt="Refacciones Tomás Badillo">
+      </span>
+      <span class="topbar__title">Control de correo · RTB</span>
+    </div>
     <div class="topbar__right">
       <span id="who" class="topbar__who"></span>
       <button id="logoutBtn" class="btn btn--ghost hidden">Cerrar sesión</button>
@@ -19,17 +24,22 @@
 
   <main class="main">
     <!-- Login -->
-    <section id="loginView" class="card hidden">
-      <h1>Acceso restringido</h1>
-      <p class="muted">Ingresa la contraseña de administración.</p>
-      <form id="loginForm" autocomplete="off">
-        <label for="usr">Usuario</label>
-        <input id="usr" name="usr" type="text" autocomplete="username" required>
-        <label for="pwd">Contraseña</label>
-        <input id="pwd" name="pwd" type="password" autocomplete="current-password" required>
-        <button class="btn btn--primary" type="submit">Entrar</button>
-        <div id="loginError" class="error"></div>
-      </form>
+    <section id="loginView" class="login hidden">
+      <div class="login__card">
+        <span class="login__badge">
+          <img src="/assets/img/comunes/logo_rtb.png" alt="RTB">
+        </span>
+        <h1>Panel de control de correo</h1>
+        <p class="login__sub">Refacciones Tomás Badillo</p>
+        <form id="loginForm" autocomplete="off">
+          <label for="usr">Usuario</label>
+          <input id="usr" name="usr" type="text" autocomplete="username" required>
+          <label for="pwd">Contraseña</label>
+          <input id="pwd" name="pwd" type="password" autocomplete="current-password" required>
+          <button class="btn btn--primary btn--block" type="submit">Entrar</button>
+          <div id="loginError" class="error"></div>
+        </form>
+      </div>
     </section>
 
     <!-- Panel administrativo -->

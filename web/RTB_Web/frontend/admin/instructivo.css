@@ -1,15 +1,25 @@
 :root {
-  --primary: #c0392b;
-  --border: #e2e5ea;
-  --muted: #6b7280;
-  --text: #1d2330;
-  --radius: 8px;
+  /* ── Marca institucional RTB ── */
+  --brand-navy:      #002b5b;
+  --brand-petrol:    #1A5F7A;
+  --brand-teal:      #159895;
+  --brand-teal-soft: #57c5b6;
+  --brand-gold:      #ad9551;
+
+  /* ── Semánticos ── */
+  --primary: var(--brand-teal);
+  --border:  #e2e5ea;
+  --muted:   #6b7280;
+  --text:    #1d2330;
+  --radius:  8px;
 }
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #f5f6f8;
+  background: #eef1f4;
   color: var(--text);
   font-size: 15px;
   line-height: 1.55;
@@ -18,8 +28,8 @@ body {
 .toolbar {
   position: sticky;
   top: 0;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--brand-navy) 0%, var(--brand-petrol) 100%);
+  border-bottom: none;
   padding: 12px 24px;
   display: flex;
   gap: 10px;
@@ -29,17 +39,21 @@ body {
 .btn {
   padding: 9px 16px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: transparent;
+  color: #ffffff;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
-.btn:hover { background: #f3f4f6; }
-.btn--primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-.btn--primary:hover { background: #962c20; }
+.btn:hover { background: rgba(255,255,255,0.12); }
+.btn--primary {
+  background: var(--brand-teal);
+  color: #fff;
+  border-color: var(--brand-teal);
+}
+.btn--primary:hover { background: #0f7c79; border-color: #0f7c79; }
 
 .doc {
   max-width: 760px;
@@ -49,11 +63,30 @@ body {
   border-radius: var(--radius);
   padding: 40px 48px;
 }
-.doc__head { border-bottom: 3px solid var(--primary); padding-bottom: 14px; margin-bottom: 8px; }
-.doc__head h1 { color: var(--primary); margin: 0 0 4px; font-size: 26px; }
+
+/* Cabecera del documento con logo */
+.doc__head {
+  border-bottom: 3px solid var(--brand-navy);
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.doc__logo {
+  height: 60px;
+  width: auto;
+  flex-shrink: 0;
+}
+.doc__head-text { flex: 1; }
+.doc__head h1 {
+  color: var(--brand-navy);
+  margin: 0 0 4px;
+  font-size: 26px;
+}
 .doc__head .sub { color: var(--muted); margin: 0; }
 
-h2 { font-size: 18px; margin: 26px 0 10px; }
+h2 { font-size: 18px; margin: 26px 0 10px; color: var(--brand-petrol); }
 h3 { font-size: 14px; margin: 0 0 8px; }
 
 section ol, section ul { padding-left: 22px; }
@@ -66,7 +99,7 @@ section li { margin: 4px 0; }
   background: #fafbfc;
   margin: 16px 0;
 }
-.box--accent { border-left: 4px solid var(--primary); }
+.box--accent { border-left: 4px solid var(--brand-teal); }
 .note { font-size: 13.5px; color: var(--muted); margin-bottom: 0; }
 
 table { border-collapse: collapse; width: 100%; }
@@ -80,9 +113,9 @@ table { border-collapse: collapse; width: 100%; }
 .srv td:first-child { color: var(--muted); width: 40%; }
 .srv tr:last-child td { border-bottom: none; }
 .srv--summary td:first-child, .srv--summary th:first-child { color: var(--muted); width: 28%; }
-.srv th { background: #f3f4f6; font-weight: 600; }
+.srv th { background: #edf3f7; font-weight: 600; color: var(--brand-petrol); }
 
-a { color: var(--primary); }
+a { color: var(--brand-petrol); }
 
 .doc__foot {
   margin-top: 30px;
@@ -92,6 +125,7 @@ a { color: var(--primary); }
   font-size: 13px;
   text-align: center;
 }
+.doc__foot strong { color: var(--brand-gold); }
 
 /* ──────────── Impresión / PDF ──────────── */
 @media print {
@@ -104,11 +138,15 @@ a { color: var(--primary); }
     border-radius: 0;
     padding: 0;
   }
-  h2 { page-break-after: avoid; }
+  .doc__head { border-bottom-color: var(--brand-navy); }
+  .doc__logo { height: 48px; }
+  h2 { page-break-after: avoid; color: var(--brand-petrol); }
   section, .box, .tables { page-break-inside: avoid; }
 }
 
 @media (max-width: 560px) {
   .doc { padding: 24px 18px; }
   .tables { grid-template-columns: 1fr; }
+  .doc__head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .doc__logo { height: 44px; }
 }
