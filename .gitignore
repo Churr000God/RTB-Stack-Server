@@ -33,6 +33,7 @@ mailserver/config/postfix-accounts.cf
 mailserver/config/dovecot-quotas.cf
 mailserver/config/*password*
 mailserver/config/*passwd*
+mailserver/mailserver.secret.env
 
 # .env del backend (contiene ADMIN_PASSWORD_HASH y SESSION_SECRET)
 web/RTB_Web/backend/.env

@@ -71,9 +71,29 @@ services:
       - "9980:9980"
     networks:
       - rtbnet
-      
+
+  roundcube:
+    image: roundcube/roundcubemail:latest-apache
+    container_name: roundcube
+    restart: unless-stopped
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mail.refacrtb.com.mx
+      - ROUNDCUBEMAIL_DEFAULT_PORT=993
+      - ROUNDCUBEMAIL_SMTP_SERVER=tls://mail.refacrtb.com.mx
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+      - ROUNDCUBEMAIL_DB_TYPE=sqlite
+      - ROUNDCUBEMAIL_PLUGINS=archive,zipdownload,managesieve
+      - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=100M
+    volumes:
+      - roundcube_data:/var/www/html
+    networks:
+      - rtbnet
+
 
 networks:
   rtbnet:
     external: true
+
+volumes:
+  roundcube_data:
 

@@ -4,7 +4,9 @@ services:
     container_name: mailserver
     hostname: mail
     domainname: refacrtb.com.mx
-    env_file: mailserver.env
+    env_file:
+      - mailserver.env
+      - mailserver.secret.env
     ports:
       - "25:25"
       - "587:587"

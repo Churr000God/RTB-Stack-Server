@@ -15,6 +15,7 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
               │   ├── www.refacrtb.com.mx   → estático       │
               │   ├── nube.refacrtb.com.mx  → nextcloud:80   │
               │   ├── office.refacrtb.com.mx → collabora:9980│
+              │   ├── mail.refacrtb.com.mx → roundcube:80    │
               │   └── /api/                 → 172.17.0.1:3000│
               └──────────────────────────────────────────────┘
                        │            │              │
@@ -36,6 +37,12 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
               │   red: mailserver_default (aislada)          │
               │   relay saliente → smtp.mailersend.net:587   │
               └──────────────────────────────────────────────┘
+                       ▲ IMAPS 993 + submission 587
+                       │ (por hostname público mail.refacrtb.com.mx)
+              ┌──────────────────────────────────────────────┐
+              │   roundcube (webmail) :80 ── red rtbnet       │
+              │   mail.refacrtb.com.mx (solo vía nginx)       │
+              └──────────────────────────────────────────────┘
 
               ┌──────────────────────────────────────────────┐
               │  Otros: portainer :9443, onlyoffice :8080    │
@@ -51,6 +58,7 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 | `nextcloud` | `nextcloud` | rtbnet | unless-stopped | nube privada |
 | `postgres` | `postgres:15` | rtbnet | unless-stopped | BD de Nextcloud |
 | `collabora` | `collabora/code` | rtbnet | unless-stopped | edición documentos |
+| `roundcube` | `roundcube/roundcubemail:latest-apache` | rtbnet | unless-stopped | webmail (SQLite) en `mail.refacrtb.com.mx` |
 | `onlyoffice` | `onlyoffice/documentserver` | rtbnet | **no** | sin uso documentado |
 | `portainer` | `portainer/portainer-ce` | rtbnet | unless-stopped | gestión Docker |
 | `mailserver` | `mailserver/docker-mailserver` | mailserver_default | always | correo |
@@ -64,7 +72,8 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 │   └── docker-compose.yml
 ├── mailserver/              → 8.6 GB
 │   ├── docker-compose.yml
-│   ├── mailserver.env       → variables y RELAY_PASSWORD
+│   ├── mailserver.env       → variables (sin secretos; el relay vive en mailserver.secret.env)
+│   ├── mailserver.secret.env → RELAY_USER/RELAY_PASSWORD de MailerSend (gitignored)
 │   ├── config/              → cuentas, postfix-accounts.cf, sasl_passwd
 │   ├── mail-data/           → buzones de los usuarios (refacrtb.com.mx)
 │   ├── mail-state/          → estado runtime (fail2ban, spamassassin, postfix queue)
@@ -101,7 +110,17 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 - **docker-mailserver** (Postfix + Dovecot + Amavis + ClamAV + SpamAssassin + fail2ban) en contenedor único.
 - **TLS**: Let's Encrypt en `/etc/letsencrypt`, montado read-only.
 - **Recepción**: puertos 25 (SMTP), 587 (submission), 993 (IMAPS) expuestos al exterior.
-- **Salida**: relay a `smtp.mailersend.net:587` (configurado en `mailserver.env` y `sasl_passwd`).
+- **Salida**: relay a `smtp.mailersend.net:587`. **Funcionando y verificado (2026-06-10)** —
+  primera entrega real `status=sent` tras corregir credenciales. El **envío directo MX→MX por el :25
+  NO es viable**: IONOS filtra el egress al 25 aguas arriba (587/443 sí salen). Config en dos capas:
+  - `RELAY_HOST=smtp.mailersend.net` + `relayhost_map` → relay por remitente `@refacrtb.com.mx`.
+  - `DEFAULT_RELAY_HOST=[smtp.mailersend.net]:587` → **fallback global** para remitentes sin match
+    (bounces `<>`, `root@`), para que tampoco intenten salir por el :25 bloqueado.
+  - Credenciales (`RELAY_USER`/`RELAY_PASSWORD`) en `mailserver.secret.env` (gitignored) +
+    `config/sasl_passwd` (gitignored). Rotación: ver `OPERACIONES.md`.
+- **Webmail**: `roundcube` (contenedor aparte en `rtbnet`, BD SQLite) servido en
+  `https://mail.refacrtb.com.mx` vía nginx; habla con el correo por el hostname público
+  (IMAPS 993 + submission 587). No toca al contenedor `mailserver`.
 - **Cuentas** (12 buzones): `contacto`, `ventas`, `finanzas`, `facturacion`, `almacen`, `recursos_humanos`, `sistemas`, `asistente`, `productos_especiales`, `gerente_general`, `angel_badmon`, `tbadillob`. Total ~8 GB.
 - **fail2ban**: `bantime=1w`, `maxretry=6`, `findtime=1w`, `banaction=nftables-allports` (bloquea TODOS los puertos al banear, no solo el afectado — esto causa que parezca caído todo el servidor).
 - **DNS**:
@@ -132,7 +151,7 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 
 | Red | Uso | Containers |
 |---|---|---|
-| `rtbnet` | web + nube + colaboración | nginx, nextcloud, postgres, collabora, portainer, onlyoffice |
+| `rtbnet` | web + nube + colaboración | nginx, nextcloud, postgres, collabora, roundcube, portainer, onlyoffice |
 | `mailserver_default` | aislada para correo | mailserver |
 | `docker_default` | default | api_rtb (descolgado del resto) |
 | `bridge` | sin uso productivo | — |
@@ -161,7 +180,8 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 > ⚠️ Estos secretos están en el repo o en variables de entorno expuestas. Deben rotarse.
 
 - `docker/docker-compose.yml`: `NEXTCLOUD_ADMIN_PASSWORD=admin123`, `POSTGRES_PASSWORD=securepass`, Collabora `password=adminpass`.
-- `mailserver/mailserver.env`: `RELAY_PASSWORD` para MailerSend (no leído en este documento, pero presente).
+- `mailserver/mailserver.secret.env`: `RELAY_USER`/`RELAY_PASSWORD` de MailerSend — **gitignored**
+  (extraídos de `mailserver.env` el 2026-06-10 para no versionar el secreto).
 - `api_rtb` env: `SMTP_PASS=mssp.eM9xYbz.z86org8m09klew13.xzpMn5H` (clave de MailerSend).
 - Credenciales de `sistemas@refacrtb.com.mx` y la API key de MailerSend fueron compartidas en chats — considerarlas comprometidas.
 

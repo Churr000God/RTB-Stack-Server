@@ -98,6 +98,48 @@ docker exec mailserver mailq
 docker exec mailserver postsuper -d ALL
 ```
 
+### Relay saliente (MailerSend) y rotación de credenciales
+
+El correo saliente **no usa envío directo**: el egress al puerto 25 está bloqueado por IONOS (587/443
+sí salen). Va por relay a `smtp.mailersend.net:587`. Dos capas (ambas en `mailserver.env`):
+`RELAY_HOST` (relay por remitente `@refacrtb.com.mx`) y `DEFAULT_RELAY_HOST` (fallback global para
+bounces/`root@`). Las credenciales viven en `mailserver/mailserver.secret.env` (**gitignored**) y se
+reflejan en `config/sasl_passwd` (texthash, también gitignored).
+
+```bash
+# Verificar que el relay está configurado
+docker exec mailserver postconf relayhost                 # → [smtp.mailersend.net]:587
+docker exec mailserver grep mailersend /etc/postfix/sasl_passwd
+
+# Confirmar un envío real (status=sent) tras mandar un correo de prueba
+docker exec mailserver grep 'relay=smtp.mailersend.net' /var/log/mail/mail.log | tail
+
+# Rotar credenciales (cuando MailerSend regenere usuario/password):
+#   1) editar mailserver/mailserver.secret.env  (RELAY_USER / RELAY_PASSWORD)
+#   2) editar mailserver/config/sasl_passwd      ([smtp.mailersend.net]:587  USER:PASS)
+cd /opt/proyectos/rtb/mailserver && docker compose up -d mailserver
+docker exec mailserver postqueue -f                       # reintenta lo diferido en cola
+```
+
+> Síntoma de credencial inválida: `status=deferred (SASL authentication failed; 535 ...)` en el log
+> y el correo se acumula en `mailq`. Tras corregir y `postqueue -f`, sale solo.
+
+### Webmail (Roundcube)
+
+Webmail en `https://mail.refacrtb.com.mx` (contenedor `roundcube` en el stack `docker/`, BD SQLite,
+servido vía nginx). No toca al contenedor `mailserver`; se conecta por el hostname público
+(IMAPS 993 + submission 587).
+
+```bash
+# Estado / logs
+docker ps --filter name=roundcube
+docker logs roundcube --tail 50
+
+# Recrear / actualizar
+cd /opt/proyectos/rtb/docker && docker compose up -d roundcube
+docker exec rtb_web nginx -t && docker exec rtb_web nginx -s reload
+```
+
 ## Nextcloud
 
 ```bash
