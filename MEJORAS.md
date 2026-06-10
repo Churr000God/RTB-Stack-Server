@@ -242,15 +242,25 @@ El container actual de nginx fue creado a mano (no por un compose); el bind moun
 - Suspender / Reactivar (estado persistido en `backend/data/mailbox-state.json`).
 - Eliminar (con doble confirmación tipeando el email).
 
-**Backend:** rutas en `web/RTB_Web/backend/routes/{adminAuthRoutes,mailAdminRoutes}.js`.
-Invoca `docker exec mailserver setup email|quota` y `doveadm expunge` con `execFile` (sin shell), validación estricta de email/cuota/contraseña antes de cualquier ejecución.
+**Backend:** rutas en `web/RTB_Web/backend/routes/{adminAuthRoutes,mailAdminRoutes,mailOpsRoutes,adminUsersRoutes}.js`,
+helpers compartidos en `utils/{mailExec,auditLog,adminStore}.js`.
+Invoca `docker exec mailserver setup email|quota`, `doveadm expunge` y `tar` con `execFile`/`spawn` (sin shell),
+validación estricta de email/cuota/contraseña/usuario antes de cualquier ejecución.
 
-**Seguridad:** bcrypt + express-session (cookie httpOnly secure, 4h), rate limit 5 intentos / 15 min por IP, dominio fijo `@refacrtb.com.mx` para creaciones.
+**Seguridad:** bcrypt + express-session (cookie httpOnly secure, 4h), rate limit 5 intentos / 15 min por IP,
+dominio fijo `@refacrtb.com.mx` para creaciones, roles `admin`/`operador` con `requireAdmin` en la gestión de usuarios.
+
+**Implementado (2026-06-10) — dashboard de control de correo:**
+- ✅ Log de auditoría (`data/audit-log.jsonl`, pestaña Auditoría) — quién hizo qué y cuándo.
+- ✅ Multi-admin con cuentas individuales y roles (`data/admins.json`); el admin raíz se siembra desde `.env`.
+- ✅ Dashboard con KPIs, almacenamiento por dominio, verificador DNS (MX/SPF/DKIM/DMARC/A) y monitor del contenedor.
+- ✅ Respaldos en `tar.gz` por buzón / dominio / total (streaming, solo lectura).
+- ✅ Instructivo de conexión por buzón descargable en PDF (impresión nativa).
 
 **Pendientes / mejoras futuras:**
-- Log de auditoría con quién hizo qué y cuándo.
 - Suspensión que también deshabilite recepción (hoy solo bloquea login IMAP/SMTP).
-- Multi-admin con cuentas individuales (hoy es un solo admin compartido).
+- DKIM: generar la clave en el contenedor y publicar el registro (el verificador lo marca como "Revisar").
+- Respaldos automatizados a almacenamiento externo (ver O1) — hoy son descargas manuales bajo demanda.
 
 ---
 

@@ -1,20 +1,22 @@
 const express = require("express");
-const { execFile } = require("child_process");
-const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const requireAuth = require("../middleware/requireAuth");
+const {
+  CONTAINER,
+  DOMAIN,
+  DATA_DIR,
+  runDocker,
+  generateRandomPassword,
+  validateEmail,
+  validatePassword,
+  validateQuota,
+  parseAccounts,
+} = require("../utils/mailExec");
+const { appendAudit } = require("../utils/auditLog");
 
 const router = express.Router();
-const CONTAINER = process.env.MAILSERVER_CONTAINER || "mailserver";
-const DOMAIN = process.env.MAIL_DOMAIN || "refacrtb.com.mx";
 
-const EMAIL_RE = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
-const QUOTA_RE = /^(\d+)([KMG]?)$/i;
-const PWD_MIN = 8;
-const PWD_MAX = 128;
-
-const DATA_DIR = path.join(__dirname, "..", "data");
 const STATE_FILE = path.join(DATA_DIR, "mailbox-state.json");
 
 function readState() {
@@ -38,68 +40,6 @@ function setSuspended(email, suspended) {
   if (suspended) set.add(email); else set.delete(email);
   state.suspended = Array.from(set).sort();
   writeState(state);
-}
-
-function generateRandomPassword(len = 32) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789-_";
-  return Array.from(crypto.randomBytes(len)).map(b => chars[b % chars.length]).join("");
-}
-
-function runDocker(args, opts = {}) {
-  return new Promise((resolve, reject) => {
-    execFile("docker", args, { timeout: opts.timeout || 15000 }, (err, stdout, stderr) => {
-      if (err) {
-        err.stderr = stderr;
-        err.stdout = stdout;
-        return reject(err);
-      }
-      resolve({ stdout, stderr });
-    });
-  });
-}
-
-function validateEmail(email) {
-  if (!email || typeof email !== "string") return "email_requerido";
-  if (email.length > 254) return "email_demasiado_largo";
-  if (!EMAIL_RE.test(email)) return "email_invalido";
-  return null;
-}
-
-function validatePassword(pwd) {
-  if (!pwd || typeof pwd !== "string") return "password_requerido";
-  if (pwd.length < PWD_MIN) return "password_corto";
-  if (pwd.length > PWD_MAX) return "password_largo";
-  if (/[\x00-\x1f\x7f]/.test(pwd)) return "password_caracteres_invalidos";
-  return null;
-}
-
-function validateQuota(quota) {
-  if (quota === null || quota === undefined || quota === "" || quota === "0") return null;
-  if (typeof quota !== "string") return "cuota_invalida";
-  if (!QUOTA_RE.test(quota.trim())) return "cuota_invalida";
-  return null;
-}
-
-function parseAccounts(stdout) {
-  const lines = stdout.split("\n").map(l => l.trim()).filter(Boolean);
-  const accounts = [];
-  for (const line of lines) {
-    // Cuentas recien creadas pueden venir como "* foo@bar (  /  ) [%]" porque dovecot
-    // aun no las indexa. Toleramos campos vacios.
-    const m = line.match(/^\*\s+(\S+)\s+\(([^/]*)\/([^)]*)\)\s*\[(\d*)%?\]/);
-    if (m) {
-      const usado = m[2].trim();
-      const cuota = m[3].trim();
-      const pct = m[4].trim();
-      accounts.push({
-        email: m[1],
-        usado: usado || "—",
-        cuota: !cuota || cuota === "~" ? "ilimitada" : cuota,
-        porcentaje: pct ? parseInt(pct, 10) : 0,
-      });
-    }
-  }
-  return accounts;
 }
 
 router.get("/accounts", requireAuth, async (req, res) => {
@@ -129,6 +69,7 @@ router.post("/accounts", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "add", email, password]);
     setSuspended(email, false);
+    appendAudit({ action: "create_mailbox", target: email });
     res.json({ ok: true, email });
   } catch (err) {
     const stderr = err.stderr || "";
@@ -149,6 +90,7 @@ router.put("/accounts/:email/password", requireAuth, async (req, res) => {
 
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, password]);
+    appendAudit({ action: "change_password", target: email });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "fallo_actualizar", detalle: err.stderr || err.message });
@@ -163,6 +105,7 @@ router.delete("/accounts/:email", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "del", "-y", email]);
     setSuspended(email, false);
+    appendAudit({ action: "delete_mailbox", target: email });
     return res.json({ ok: true });
   } catch (err) {
     const stderr = err.stderr || "";
@@ -172,6 +115,7 @@ router.delete("/accounts/:email", requireAuth, async (req, res) => {
         await runDocker(["exec", CONTAINER, "mkdir", "-p", `/var/mail/${domain}/${local}`]);
         await runDocker(["exec", CONTAINER, "setup", "email", "del", "-y", email]);
         setSuspended(email, false);
+        appendAudit({ action: "delete_mailbox", target: email });
         return res.json({ ok: true });
       } catch (err2) {
         return res.status(500).json({ error: "fallo_eliminar", detalle: err2.stderr || err2.message });
@@ -190,6 +134,7 @@ router.post("/accounts/:email/suspend", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, randomPwd]);
     setSuspended(email, true);
+    appendAudit({ action: "suspend", target: email });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "fallo_suspender", detalle: err.stderr || err.message });
@@ -207,6 +152,7 @@ router.post("/accounts/:email/unsuspend", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, password]);
     setSuspended(email, false);
+    appendAudit({ action: "unsuspend", target: email });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "fallo_reactivar", detalle: err.stderr || err.message });
@@ -229,10 +175,12 @@ router.put("/accounts/:email/quota", requireAuth, async (req, res) => {
     } else {
       await runDocker(["exec", CONTAINER, "setup", "quota", "set", email, normalized]);
     }
+    appendAudit({ action: "set_quota", target: email, details: `quota=${normalized || "ilimitada"}` });
     res.json({ ok: true, quota: normalized || "ilimitada" });
   } catch (err) {
     const stderr = err.stderr || "";
     if (/no quota.*set/i.test(stderr) && (!normalized || normalized === "0")) {
+      appendAudit({ action: "set_quota", target: email, details: "quota=ilimitada" });
       return res.json({ ok: true, quota: "ilimitada" });
     }
     res.status(500).json({ error: "fallo_cuota", detalle: stderr || err.message });
@@ -249,11 +197,13 @@ router.post("/accounts/:email/empty", requireAuth, async (req, res) => {
       ["exec", CONTAINER, "doveadm", "expunge", "-u", email, "mailbox", "*", "all"],
       { timeout: 60000 }
     );
+    appendAudit({ action: "empty_mailbox", target: email });
     res.json({ ok: true });
   } catch (err) {
     const stderr = err.stderr || "";
     // doveadm devuelve codigo de salida 75 cuando no hay nada que expunge — tratamos como exito.
     if (err.code === 75 || /no messages/i.test(stderr) || /No matching messages/i.test(stderr)) {
+      appendAudit({ action: "empty_mailbox", target: email });
       return res.json({ ok: true, vacio: true });
     }
     res.status(500).json({ error: "fallo_vaciar", detalle: stderr || err.message });

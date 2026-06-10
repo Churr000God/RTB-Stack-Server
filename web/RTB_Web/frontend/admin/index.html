@@ -10,7 +10,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar__title">Panel RTB · Gestión de correo</div>
+    <div class="topbar__title">Panel RTB · Control de correo</div>
     <div class="topbar__right">
       <span id="who" class="topbar__who"></span>
       <button id="logoutBtn" class="btn btn--ghost hidden">Cerrar sesión</button>
@@ -18,10 +18,13 @@
   </header>
 
   <main class="main">
+    <!-- Login -->
     <section id="loginView" class="card hidden">
       <h1>Acceso restringido</h1>
       <p class="muted">Ingresa la contraseña de administración.</p>
       <form id="loginForm" autocomplete="off">
+        <label for="usr">Usuario</label>
+        <input id="usr" name="usr" type="text" autocomplete="username" required>
         <label for="pwd">Contraseña</label>
         <input id="pwd" name="pwd" type="password" autocomplete="current-password" required>
         <button class="btn btn--primary" type="submit">Entrar</button>
@@ -29,33 +32,232 @@
       </form>
     </section>
 
+    <!-- Panel administrativo -->
     <section id="adminView" class="hidden">
-      <div class="row row--space">
-        <h1>Buzones de correo</h1>
-        <button id="newAccountBtn" class="btn btn--primary">+ Nuevo buzón</button>
-      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab is-active" data-section="panel">📊 Panel</button>
+        <button class="tab" data-section="buzones">📬 Buzones</button>
+        <button class="tab" data-section="storage">💾 Almacenamiento</button>
+        <button class="tab" data-section="audit">📋 Auditoría</button>
+        <button class="tab" data-section="guide">🔌 Guía de conexión</button>
+        <button class="tab" data-section="dns">🌐 Verificador DNS</button>
+        <button class="tab" data-section="monitor">🩺 Monitor</button>
+        <button class="tab tab--admin hidden" data-section="users">👤 Administradores</button>
+      </nav>
 
       <div id="flash" class="flash hidden"></div>
 
-      <div class="card">
-        <table class="accounts">
-          <thead>
-            <tr>
-              <th>Correo</th>
-              <th>Estado</th>
-              <th>Usado</th>
-              <th>Cuota</th>
-              <th>%</th>
-              <th class="col-actions">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="accountsTbody">
-            <tr><td colspan="6" class="muted">Cargando…</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- ── Sección: Panel / KPIs ── -->
+      <section id="sec-panel" class="section">
+        <div class="row row--space">
+          <h1>Resumen</h1>
+          <button class="btn btn--small" data-refresh="panel">🔄 Refrescar</button>
+        </div>
+        <div id="kpis" class="kpis"></div>
+        <div class="card" style="margin-top:16px">
+          <h2>Dominios</h2>
+          <table class="accounts" id="panelDomains">
+            <thead><tr><th>Dominio</th><th>Buzones</th><th>Disco</th></tr></thead>
+            <tbody><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Sección: Buzones ── -->
+      <section id="sec-buzones" class="section hidden">
+        <div class="row row--space">
+          <h1>Buzones de correo</h1>
+          <button id="newAccountBtn" class="btn btn--primary">+ Nuevo buzón</button>
+        </div>
+        <div class="card">
+          <input id="searchBox" type="text" placeholder="Buscar email…" class="search">
+          <table class="accounts">
+            <thead>
+              <tr>
+                <th>Correo</th>
+                <th>Estado</th>
+                <th>Usado</th>
+                <th>Cuota</th>
+                <th>%</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="accountsTbody">
+              <tr><td colspan="6" class="muted">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Sección: Almacenamiento ── -->
+      <section id="sec-storage" class="section hidden">
+        <div class="row row--space">
+          <h1>Almacenamiento por dominio</h1>
+          <button class="btn btn--small" data-refresh="storage">🔄 Refrescar</button>
+        </div>
+        <div id="storageWrap"><p class="muted">Cargando…</p></div>
+      </section>
+
+      <!-- ── Sección: Auditoría ── -->
+      <section id="sec-audit" class="section hidden">
+        <div class="row row--space">
+          <h1>Auditoría</h1>
+          <button class="btn btn--small" data-refresh="audit">🔄 Refrescar</button>
+        </div>
+        <div class="card">
+          <table class="accounts">
+            <thead><tr><th>Fecha</th><th>Admin</th><th>Acción</th><th>Objetivo</th><th>Detalles</th></tr></thead>
+            <tbody id="auditTbody"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Sección: Guía de conexión + instructivos ── -->
+      <section id="sec-guide" class="section hidden">
+        <div class="row row--space">
+          <h1>Guía de conexión</h1>
+          <button class="btn btn--small" data-refresh="guide">🔄 Actualizar</button>
+        </div>
+        <div class="card">
+          <h2>⚙️ Datos del servidor de correo</h2>
+          <p class="muted">Proporcionar a los usuarios finales.</p>
+          <div id="guideServer" class="conn-grid"></div>
+          <p class="muted" style="margin-top:14px">El nombre de usuario es siempre la dirección de correo completa
+            (ej: <strong>info@refacrtb.com.mx</strong>). La contraseña es la asignada desde el panel.</p>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h2>📄 Generar instructivo por buzón</h2>
+          <input id="guideSearch" type="text" placeholder="Buscar email…" class="search">
+          <table class="accounts">
+            <thead><tr><th>Buzón</th><th>Estado</th><th class="col-actions">Instructivo</th></tr></thead>
+            <tbody id="guideTbody"><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Sección: Verificador DNS ── -->
+      <section id="sec-dns" class="section hidden">
+        <div class="row row--space">
+          <h1>Verificador de dominio / DNS</h1>
+          <button class="btn btn--small" data-refresh="dns">🔄 Verificar</button>
+        </div>
+        <div class="card">
+          <table class="accounts">
+            <thead><tr><th>Registro</th><th>Esperado</th><th>Encontrado</th><th>Estado</th></tr></thead>
+            <tbody id="dnsTbody"><tr><td colspan="4" class="muted">Verificando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── Sección: Monitor del contenedor ── -->
+      <section id="sec-monitor" class="section hidden">
+        <div class="row row--space">
+          <h1>Monitor del contenedor</h1>
+          <button class="btn btn--small" data-refresh="monitor">🔄 Refrescar</button>
+        </div>
+        <div id="monitorStatus" class="kpis"></div>
+
+        <div class="card" style="margin-top:16px">
+          <h2>💾 Respaldos</h2>
+          <p class="muted">Descarga los buzones en <code>.tar.gz</code> (solo lectura, vía contenedor).</p>
+          <div class="row" style="flex-wrap:wrap;gap:10px">
+            <button class="btn" id="backupAllBtn">⬇️ Respaldo total (todo el correo)</button>
+            <span class="muted">El respaldo total pesa varios GB; puede tardar minutos. Respaldo por buzón en la pestaña Buzones.</span>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="row row--space">
+            <h2>📜 Logs (últimas líneas)</h2>
+            <button class="btn btn--small" id="logsRefresh">🔄 Recargar logs</button>
+          </div>
+          <pre id="monitorLogs" class="logs">Cargando…</pre>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h2>🛠️ Comandos esenciales</h2>
+          <p class="muted">Ejecutar en el servidor (carpeta <code>mailserver/</code>).</p>
+          <pre class="logs">cd /opt/proyectos/rtb/mailserver
+
+docker compose ps                 # estado
+docker compose up -d              # levantar
+docker compose down               # detener
+docker compose restart            # reiniciar
+docker logs --tail 200 mailserver # ver logs
+docker exec mailserver setup email list   # listar buzones
+docker stats --no-stream mailserver       # CPU / memoria</pre>
+        </div>
+      </section>
+
+      <!-- ── Sección: Administradores (solo rol admin) ── -->
+      <section id="sec-users" class="section hidden">
+        <div class="row row--space">
+          <h1>Administradores del panel</h1>
+          <button id="newUserBtn" class="btn btn--primary">+ Nuevo usuario</button>
+        </div>
+        <div class="card">
+          <p class="muted">Roles: <strong>admin</strong> (acceso total, gestiona usuarios) ·
+            <strong>operador</strong> (gestiona buzones, sin esta sección). Solo un admin puede crear usuarios
+            y cambiar contraseñas.</p>
+          <table class="accounts">
+            <thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th class="col-actions">Acciones</th></tr></thead>
+            <tbody id="usersTbody"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
+
+  <!-- Modal: crear usuario admin -->
+  <div id="userCreateModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Nuevo usuario del panel</h2>
+      <form id="userCreateForm" autocomplete="off">
+        <label for="newUserName">Usuario</label>
+        <input id="newUserName" type="text" required pattern="[a-zA-Z0-9._-]{3,32}" placeholder="ej: carlos.operador">
+        <div class="muted">3–32 caracteres: letras, números, punto, guion y guion bajo.</div>
+
+        <label for="newUserRole">Rol</label>
+        <select id="newUserRole" class="select">
+          <option value="operador">operador — gestiona buzones</option>
+          <option value="admin">admin — acceso total + usuarios</option>
+        </select>
+
+        <label for="newUserPwd">Contraseña</label>
+        <div class="pwd-row">
+          <input id="newUserPwd" type="text" minlength="8" required>
+          <button type="button" class="btn btn--ghost" id="userGenPwd">Generar</button>
+        </div>
+        <div class="muted">Mínimo 8 caracteres. Compártela por un canal seguro.</div>
+
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Crear</button>
+        </div>
+        <div class="error" id="userCreateError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: cambiar contraseña de usuario admin -->
+  <div id="userPwdModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <h2>Cambiar contraseña de usuario</h2>
+      <p>Usuario: <strong id="userPwdName"></strong></p>
+      <form id="userPwdForm" autocomplete="off">
+        <label for="userPwdNew">Nueva contraseña</label>
+        <div class="pwd-row">
+          <input id="userPwdNew" type="text" minlength="8" required>
+          <button type="button" class="btn btn--ghost" id="userPwdGen">Generar</button>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Actualizar</button>
+        </div>
+        <div class="error" id="userPwdError"></div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modal: crear -->
   <div id="createModal" class="modal hidden" role="dialog" aria-modal="true">

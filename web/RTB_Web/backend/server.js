@@ -10,6 +10,8 @@ const app = express();
 const contactRoutes = require("./routes/contactRoutes");
 const adminAuthRoutes = require("./routes/adminAuthRoutes");
 const mailAdminRoutes = require("./routes/mailAdminRoutes");
+const mailOpsRoutes = require("./routes/mailOpsRoutes");
+const adminUsersRoutes = require("./routes/adminUsersRoutes");
 
 app.set("trust proxy", 1);
 
@@ -41,7 +43,9 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "public", "uploads
 // Montar rutas API
 app.use("/api", contactRoutes);
 app.use("/api/admin", adminAuthRoutes);
+app.use("/api/admin/users", adminUsersRoutes);
 app.use("/api/admin/mail", mailAdminRoutes);
+app.use("/api/admin/mail", mailOpsRoutes);
 
 // Ruta de prueba opcional
 app.get("/api/status", (req, res) => {
