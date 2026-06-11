@@ -26,7 +26,7 @@ services:
       - rtbnet
 
   nextcloud:
-    image: nextcloud:31       # 31.0.7 (Jul-2025); :31 recibe parches 31.x (B5.4)
+    image: nextcloud:31       # 31.0.14 (Jun-2026); :31 recibe parches 31.x (B5.4/N7)
     container_name: nextcloud
     volumes:
       - ../nextcloud/data:/var/www/html
@@ -38,9 +38,13 @@ services:
       - POSTGRES_DB=nextcloud
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis        # activa redis.config.php (memcache.distributed + locking) (N7)
+      - REDIS_PORT=6379
     depends_on:
       postgres:
         condition: service_healthy   # espera readiness real de Postgres (B5.3)
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     deploy:
       resources:
@@ -54,6 +58,7 @@ services:
       start_period: 60s
     networks:
       - rtbnet
+      - db_net        # acceso a postgres y redis (B5.5/N7)
 
   portainer:
     image: portainer/portainer-ce:lts  # canal LTS estable; no tiene tag :2 en registry (B5.4)
@@ -68,8 +73,7 @@ services:
         limits:
           memory: 256m
     # healthcheck: imagen scratch sin shell/wget/curl — restart: unless-stopped cubre fallos
-    networks:
-      - rtbnet
+    # networks: sin red de app — gestiona vía docker.sock; fuera de rtbnet/db_net (B5.5)
 
   postgres:
     image: postgres:15        # 15.13 (ya pinado a major) (B5.4)
@@ -91,7 +95,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - rtbnet
+      - db_net        # red interna aislada; solo nextcloud necesita postgres (B5.5)
 
   collabora:
     image: collabora/code     # Sin tag semver estable upstream; SHA Jul-2025 (B5.4)
@@ -146,10 +150,30 @@ services:
     networks:
       - rtbnet
 
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]   # caché puro, sin persistencia en disco
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - db_net        # red interna aislada; caché y locking de Nextcloud (N7/B5.5)
+
 
 networks:
   rtbnet:
     external: true
+  db_net:
+    internal: true    # sin egress; postgres y redis aislados de internet y de la L2 de nginx (B5.5)
 
 volumes:
   roundcube_data:
