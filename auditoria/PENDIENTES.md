@@ -81,4 +81,5 @@
 - **2026-06-09** — Aplicados **A3** (diegoadmin1/2 deshabilitadas: `usermod -L -e 1`) y **A8** (`passwd -l root`). Verificado: las 3 cuentas en estado `L`. Pendientes A1/A2/A5/A6 (requieren ventana de servicio).
 - **2026-06-09** — B0.2 HECHO: backup local VPS (Postgres+configs+correo) automatizado con systemd timer diario 03:30 UTC; probado y validado.
 - **2026-06-09** — B0.3 iniciado y PAUSADO: VPS+Pi configurados, test OK; 1ª sync falló por hardware (SSD USB se desconecta por potencia). Sesión abierta en `SESION-ABIERTA.md`.
-- **2026-06-11** — Sesión de endurecimiento de la nube completada. Cerrados: B1.1, B1.2, B2.1 (ya estaba), B2.2, B3.1, B3.6, B4.2, B4.3, B5.3, B5.4, B6.2, N1–N6, N8. Parcial: N7. 9 commits en rama `feat/dashboard-correo-multiadmin`.
+- **2026-06-11** — Sesión de endurecimiento de la nube completada. Cerrados: B1.1, B1.2, B2.1 (ya estaba), B2.2, B3.1, B3.6, B4.2, B4.3, B5.3, B5.4, B6.2, N1–N6, N8. Parcial: N7. 10 commits en rama `feat/dashboard-correo-multiadmin`. Detalle en [SESION-NUBE-2026-06-11.md](SESION-NUBE-2026-06-11.md).
+- **2026-06-11** — **Incidente 2FA admin Nextcloud**: tras rotación de contraseña el usuario no podía entrar (TOTP + notificación NC fallaban). Ambos factores deshabilitados vía `occ twofactorauth:disable`. **Pendiente: reconfigurar TOTP** en Configuración → Seguridad.
