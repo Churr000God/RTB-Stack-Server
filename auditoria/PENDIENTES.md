@@ -31,7 +31,7 @@
 - [x] **B3.7** `passwd -l root` **hecho 2026-06-09** (contraseña de root bloqueada; el backup por llave+comando forzado sigue intacto) — *A8*
 
 ## Bloque 4 — Limpieza zombies/huérfanos (🟠–🟡, esf. B)
-- [ ] **B4.1** Decidir destino de onlyoffice (`app.`) y api_rtb (`api.`): retirar o cablear
+- [x] **B4.1** Decidir destino de onlyoffice (`app.`) y api_rtb (`api.`): retirar o cablear — **HECHO 2026-06-11**. `docker rm onlyoffice` (zombie Exited OOM); `api/` eliminado (FastAPI huérfano, credenciales placeholder); `web/RTB_Web/deploy/nginx/default.conf` y `docker/mailu/overrides/nginx/extra.conf` borrados; certs `api.`/`app.` eliminados (`certbot delete`). Collabora cubre documentos (richdocuments 8.8.0). DNS `api.`/`app.` pendiente de baja en IONOS (ver [DNS-B6.1.md](DNS-B6.1.md))
 - [x] **B4.2** Eliminar compose duplicado — **HECHO 2026-06-11**. `web/docker-compose.yml` (mismo `container_name: rtb_web`, peligroso) retirado del repo. Configs nginx muertas `docker/nginx/conf.d/*.conf` y `docker/nginx/extra.conf` también eliminadas. `rtb_web` migrado del proyecto `web/` al proyecto `docker/` (compose canónico)
 - [x] **B4.3** `git rm -r --cached docker/nextcloud/data` — **HECHO 2026-06-11**. 30 063 archivos desindexados (~228 MB del repo); patrón añadido a `.gitignore`
 
@@ -40,10 +40,10 @@
 - [x] **B5.2** Reinicio del host — **NO APLICA (2026-06-11)**. El host ya arrancó el 2026-06-09 23:42 con el kernel más reciente instalado (`5.15.0-181-generic`). Sin `reboot-required` y sin kernel en los updates de B5.1. Cerrado.
 - [x] **B5.3** Healthchecks por contenedor — **HECHO 2026-06-11**. postgres:`pg_isready`, nextcloud:`curl /status.php`, nginx:`curl localhost/`, collabora:`curl /hosting/discovery`, roundcube:`curl localhost/`, portainer:`wget /api/status`. `depends_on: condition: service_healthy` en nextcloud→postgres
 - [x] **B5.4** Fijar tags de imágenes — **HECHO 2026-06-11**. nginx:1 (→tiró 1.31.1 con parches), nextcloud:31, postgres:15, portainer/portainer-ce:lts. Collabora/roundcube sin tag semver estable upstream documentados
-- [ ] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx)
+- [x] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx) — **HECHO 2026-06-11**. Nueva red `db_net` (`internal: true`); postgres y redis solo en `db_net`; nextcloud en `rtbnet` + `db_net`; portainer fuera de toda red de app (gestiona vía `docker.sock`). Verificado: `docker network inspect docker_db_net` → nextcloud+postgres+redis; `docker network inspect rtbnet` → sin postgres ni portainer
 
 ## Bloque 6 — Correo (🟡, esf. B)
-- [ ] **B6.1** DMARC `rua` a buzón propio; confirmar CNAMEs DKIM de MailerSend
+- [~] **B6.1** DMARC `rua` a buzón propio; confirmar CNAMEs DKIM de MailerSend — **DOCUMENTADO 2026-06-11, esperando DNS**. Instrucciones exactas en [DNS-B6.1.md](DNS-B6.1.md): cambiar `rua` a `admin@refacrtb.com.mx`; obtener CNAMEs de MailerSend y publicarlos; bajar DNS `api.`/`app.`. El operador aplica los cambios en el panel IONOS
 
 ## Bloque N — Hallazgos nuevos 2026-06-11 (auditoría de re-revisión de nube)
 - [x] **N1** Background jobs en modo AJAX — **RESUELTO 2026-06-11**. `occ background:cron`; cron host `*/5 * * * * docker exec -u www-data nextcloud php cron.php`
@@ -52,7 +52,7 @@
 - [x] **N4** `renew-ssl-certs.sh` hace `docker stop rtb_web` (downtime en cada renovación) — **RESUELTO 2026-06-11**. Migrado a webroot: `/var/www/certbot` montado en nginx; certbot migrado standalone→webroot (6 certs); deploy-hook `reload-nginx.sh`; cron semanal eliminado; `certbot.timer` toma control. Dry-run: todos success
 - [x] **N5** `loglevel=0` (debug) en producción — **RESUELTO 2026-06-11**. `occ config:system:set loglevel --value=2`
 - [x] **N6** `default_phone_region` y `maintenance_window_start` sin definir — **RESUELTO 2026-06-11**. `occ config:system:set default_phone_region MX` y `maintenance_window_start 1`
-- [x] **N7 (parcial)** NC 31.0.7 desactualizado (31.0.14 disponible); sin Redis — **PARCIAL**: NC y apps no actualizados aún (pendiente ventana B5.2); Redis sin implementar (evaluar). Imágenes actualizadas por pin `:31` (recibirá 31.0.x)
+- [x] **N7** NC 31.0.14 + Redis — **HECHO 2026-06-11**. NC ya en 31.0.14.1 (pin `:31` tiró el parche); `redis:alpine` añadido en `db_net`; `REDIS_HOST=redis` cableado a NC → `memcache.distributed=\OC\Memcache\Redis` + `memcache.locking=\OC\Memcache\Redis`. Apps ya al día (`occ app:update --all`: all up-to-date)
 - [x] **N8** Basura en `docker/` y `mailserver/fail2ban/jail.local.bak` — **RESUELTO 2026-06-11**. Archivos `=`, `[internal]`, `reading`, `transferring` y `jail.local.bak` eliminados
 - [x] **B6.2** `nextcloud.log` sin rotar (era **41 GB**, no 554 MB) — **RESUELTO 2026-06-11**. `log_rotate_size=100MB` vía occ; log truncado (liberó ~41 GB de disco, uso /: 48%→46%)
 
@@ -64,13 +64,11 @@
 | B0.4 | Prueba restore real en contenedor desechable | 🔴 |
 | B3.2 | SSH: password habilitado (riesgo aceptado; Ed25519 disponible como alternativa) | 🟠 |
 | B3.4 | Acotar sudo NOPASSWD:ALL de rtbadmin (riesgo aceptado) | 🟠 |
-| B4.1 | Decidir OnlyOffice (`app.`) y api_rtb | 🟡 |
-| B5.5 | Segmentar red `db` (postgres fuera de rtbnet con nginx) | 🟡 |
-| N7 | Actualizar NC 31.0.7→31.0.14 + apps + evaluar Redis | 🟡 |
-| B6.1 | DMARC rua + CNAMEs DKIM MailerSend | 🟡 |
+| B6.1 | DMARC rua + CNAMEs DKIM MailerSend (doc lista, operador aplica DNS) | 🟡 |
 
 ---
 ### Bitácora
+- **2026-06-11** — Sesión de cierre de 4 pendientes 🟡. Cerrados: B4.1 (purga OnlyOffice+api_rtb: docker rm, borrar api/, configs nginx muertas, certs certbot delete), B5.5 (red db_net internal + portainer fuera de rtbnet), N7 (Redis:alpine en db_net, memcache.distributed+locking=Redis, apps up-to-date). B6.1 documentado en [DNS-B6.1.md](DNS-B6.1.md) — operador aplica cambios en IONOS. 3 commits en rama `feat/dashboard-correo-multiadmin`.
 - **2026-06-09** — Auditoría de solo lectura completada. Entregables en `auditoria/`.
 - **2026-06-09** — Anexo de **accesos** (usuarios/permisos/SSH/sudo) completado en `AUDITORIA-ACCESOS.md`; hallazgos A1–A9 integrados al Bloque 3.
 - **2026-06-09** — Aplicados **A3** (diegoadmin1/2 deshabilitadas: `usermod -L -e 1`) y **A8** (`passwd -l root`). Verificado: las 3 cuentas en estado `L`. Pendientes A1/A2/A5/A6 (requieren ventana de servicio).
