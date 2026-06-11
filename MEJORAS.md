@@ -114,6 +114,8 @@ Prioridad: 🔴 crítica · 🟠 alta · 🟡 media · 🟢 baja
 
 **Decisión recomendada:** opción A — el endpoint que ofrecía (`POST /contact`) ya está cubierto por el backend Node (`POST /api/contacto`) con más features (PDF + WebDAV).
 
+**Estado (2026-06-11): ✅ COMPLETADO** — contenedor e imagen eliminados.
+
 **Esfuerzo.** S.
 
 ---
@@ -256,10 +258,12 @@ dominio fijo `@refacrtb.com.mx` para creaciones, roles `admin`/`operador` con `r
 - ✅ Dashboard con KPIs, almacenamiento por dominio, verificador DNS (MX/SPF/DKIM/DMARC/A) y monitor del contenedor.
 - ✅ Respaldos en `tar.gz` por buzón / dominio / total (streaming, solo lectura).
 - ✅ Instructivo de conexión por buzón descargable en PDF (impresión nativa).
+- ✅ Monitor: tarjeta Salud deriva estado del contenedor; botones Levantar/Reiniciar/Detener (2026-06-11).
+- ✅ DKIM generado y operativo; DMARC `p=reject`; mail-tester.com 9.2/10 (2026-06-11).
+- ✅ Roundcube desplegado en `https://mail.refacrtb.com.mx`; envío externo verificado (2026-06-11).
 
 **Pendientes / mejoras futuras:**
 - Suspensión que también deshabilite recepción (hoy solo bloquea login IMAP/SMTP).
-- DKIM: generar la clave en el contenedor y publicar el registro (el verificador lo marca como "Revisar").
 - Respaldos automatizados a almacenamiento externo (ver O1) — hoy son descargas manuales bajo demanda.
 
 ---
@@ -293,10 +297,9 @@ dominio fijo `@refacrtb.com.mx` para creaciones, roles `admin`/`operador` con `r
 - PTR record (reverso) coherente con el HELO.
 - ARC para preservar firmas al reenviar.
 
-**Propuesta.**
-- Probar en [mail-tester.com](https://mail-tester.com) — debería dar 10/10.
-- Confirmar DMARC con política `quarantine` o `reject` con reportes a `dmarc@refacrtb.com.mx`.
-- Revisar [mxtoolbox.com](https://mxtoolbox.com) para blacklists.
+**Estado (2026-06-11): ✅ COMPLETADO**
+- mail-tester.com: **9.2/10**. `dkim=pass`, `SPF valid`, DMARC `p=reject` propagado.
+- Los 0.8 puntos restantes son del relay MailerSend (SPF_HELO_NONE, RCVD_DOUBLE_IP_LOOSE) — no accionables desde este servidor.
 
 **Esfuerzo.** S.
 
