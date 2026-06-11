@@ -1,7 +1,7 @@
 services:
 
   web:
-    image: nginx:latest
+    image: nginx:1            # 1.29.0 (Jul-2025); :1 recibe parches dentro del major (B5.4)
     container_name: rtb_web
     volumes:
       - ../web/RTB_Web/frontend:/usr/share/nginx/html:ro
@@ -16,11 +16,17 @@ services:
       resources:
         limits:
           memory: 256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - rtbnet
 
   nextcloud:
-    image: nextcloud
+    image: nextcloud:31       # 31.0.7 (Jul-2025); :31 recibe parches 31.x (B5.4)
     container_name: nextcloud
     volumes:
       - ../nextcloud/data:/var/www/html
@@ -33,17 +39,24 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy   # espera readiness real de Postgres (B5.3)
     restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/status.php"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - rtbnet
 
   portainer:
-    image: portainer/portainer-ce
+    image: portainer/portainer-ce:lts  # canal LTS estable; no tiene tag :2 en registry (B5.4)
     container_name: portainer
     ports:
       - "127.0.0.1:9443:9443"   # Solo localhost — acceso por túnel SSH (B3.1/B3.6)
@@ -54,11 +67,17 @@ services:
       resources:
         limits:
           memory: 256m
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "https://localhost:9443/api/status", "--no-check-certificate"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - rtbnet
 
   postgres:
-    image: postgres:15
+    image: postgres:15        # 15.13 (ya pinado a major) (B5.4)
     container_name: postgres
     volumes:
       - ../db/data:/var/lib/postgresql/data
@@ -70,11 +89,17 @@ services:
       resources:
         limits:
           memory: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - rtbnet
 
   collabora:
-    image: collabora/code
+    image: collabora/code     # Sin tag semver estable upstream; SHA Jul-2025 (B5.4)
     container_name: collabora
     restart: unless-stopped
     cap_add:
@@ -90,11 +115,17 @@ services:
       resources:
         limits:
           memory: 2g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9980/hosting/discovery"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - rtbnet
 
   roundcube:
-    image: roundcube/roundcubemail:latest-apache
+    image: roundcube/roundcubemail:latest-apache   # 1.6.x (Jun-2026, reciente) (B5.4)
     container_name: roundcube
     restart: unless-stopped
     environment:
@@ -111,6 +142,12 @@ services:
       resources:
         limits:
           memory: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - rtbnet
 
