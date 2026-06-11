@@ -38,7 +38,7 @@ services:
     image: portainer/portainer-ce
     container_name: portainer
     ports:
-      - "9443:9443"
+      - "127.0.0.1:9443:9443"   # Solo localhost — acceso por túnel SSH (B3.1/B3.6)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -68,8 +68,8 @@ services:
       - username=${COLLABORA_USERNAME}
       - password=${COLLABORA_PASSWORD}
       - extra_params=--o:ssl.enable=false
-    ports:
-      - "9980:9980"
+    expose:
+      - "9980"    # Solo red interna rtbnet — nginx proxea office.refacrtb.com.mx (B3.6)
     networks:
       - rtbnet
 
