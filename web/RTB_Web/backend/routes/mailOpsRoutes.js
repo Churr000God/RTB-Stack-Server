@@ -48,10 +48,19 @@ async function containerState() {
     const { stdout } = await runDocker([
       "inspect", "-f", "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}", CONTAINER,
     ]);
-    const [status, health] = stdout.trim().split("|");
-    return { status: status || "desconocido", health: health || "n/a" };
+    const [status, rawHealth] = stdout.trim().split("|");
+    // Si Docker no tiene healthcheck definido, derivamos la salud del estado del contenedor.
+    let health;
+    if (!rawHealth || rawHealth === "n/a") {
+      if (status === "running")               health = "saludable";
+      else if (status === "exited" || status === "dead") health = "caído";
+      else                                    health = "desconocido";
+    } else {
+      health = rawHealth;
+    }
+    return { status: status || "desconocido", health };
   } catch (err) {
-    return { status: "no_encontrado", health: "n/a", error: err.stderr || err.message };
+    return { status: "no_encontrado", health: "caído", error: err.stderr || err.message };
   }
 }
 
@@ -209,6 +218,29 @@ router.get("/container/logs", requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "fallo_logs", detalle: err.stderr || err.message });
   }
+});
+
+// ──────────── Control de ciclo de vida del contenedor ────────────
+// Estas rutas ejecutan docker start/stop/restart sin shell (execFile).
+// Requieren sesión autenticada. Acciones destructivas → confirm() en el front.
+
+const CTL_ACTIONS = {
+  start:   { args: ["start"],   label: "container_start",   timeout: 20000 },
+  stop:    { args: ["stop"],    label: "container_stop",    timeout: 30000 },
+  restart: { args: ["restart"], label: "container_restart", timeout: 30000 },
+};
+
+Object.entries(CTL_ACTIONS).forEach(([action, cfg]) => {
+  router.post(`/container/${action}`, requireAuth, async (req, res) => {
+    try {
+      await runDocker([...cfg.args, CONTAINER], { timeout: cfg.timeout });
+      appendAudit({ admin: req.session.user || "admin", action: cfg.label, target: CONTAINER });
+      const estado = await containerState();
+      res.json({ ok: true, accion: action, ...estado });
+    } catch (err) {
+      res.status(500).json({ error: `fallo_${action}`, detalle: err.stderr || err.message });
+    }
+  });
 });
 
 // ──────────── Respaldos (streaming tar.gz vía contenedor) ────────────

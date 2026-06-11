@@ -411,7 +411,11 @@
         : `<span class="badge badge--off">${escapeHtml(data.status || "?")}</span>`;
       wrap.innerHTML = `
         ${kpi("Estado", sBadge)}
-        ${kpi("Salud", escapeHtml(data.health || "n/a"))}
+        ${kpi("Salud", data.health === "saludable" || data.health === "healthy"
+          ? `<span class="badge badge--ok">${escapeHtml(data.health)}</span>`
+          : data.health === "caído" || data.health === "unhealthy"
+            ? `<span class="badge badge--off">${escapeHtml(data.health)}</span>`
+            : `<span class="badge">${escapeHtml(data.health || "n/a")}</span>`)}
         ${kpi("CPU", escapeHtml(data.cpu || "—"))}
         ${kpi("Memoria", escapeHtml(data.mem || "—"))}
       `;
@@ -436,6 +440,29 @@
       downloadBackup("all");
     }
   });
+
+  // ──────────── Control de ciclo de vida del contenedor ────────────
+  const CTL_BTNS = ["#ctlStart", "#ctlRestart", "#ctlStop"];
+  async function containerAction(action, label) {
+    if (!confirm(`¿Seguro que deseas ${label} el servidor de correo?`)) return;
+    const msgEl = $("#ctlMsg");
+    CTL_BTNS.forEach(sel => { $(sel).disabled = true; });
+    msgEl.textContent = "Ejecutando…";
+    const { res, data } = await api(`${MAIL_API}/container/${action}`, { method: "POST" });
+    CTL_BTNS.forEach(sel => { $(sel).disabled = false; });
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      flash(`Acción "${label}" completada. Estado: ${data.status || "?"}`, "ok");
+      msgEl.textContent = "";
+      loadMonitor();
+    } else {
+      flash(`Error al ${label}: ${data.detalle || data.error || "sin detalle"}`, "error");
+      msgEl.textContent = "";
+    }
+  }
+  $("#ctlStart").addEventListener("click",   () => containerAction("start",   "levantar"));
+  $("#ctlRestart").addEventListener("click", () => containerAction("restart", "reiniciar"));
+  $("#ctlStop").addEventListener("click",    () => containerAction("stop",    "detener"));
 
   // ──────────── Modales: helpers ────────────
   function openModal(id) { $(id).classList.remove("hidden"); }

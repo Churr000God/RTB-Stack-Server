@@ -185,9 +185,17 @@
         </div>
 
         <div class="card" style="margin-top:16px">
-          <h2>🛠️ Comandos esenciales</h2>
-          <p class="muted">Ejecutar en el servidor (carpeta <code>mailserver/</code>).</p>
-          <pre class="logs">cd /opt/proyectos/rtb/mailserver
+          <h2>🛠️ Control del servidor de correo</h2>
+          <p class="muted">Las acciones se ejecutan directamente sobre el contenedor. Se confirma antes de cada operación.</p>
+          <div class="row" style="flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+            <button class="btn" id="ctlStart">▶️ Levantar</button>
+            <button class="btn" id="ctlRestart">🔄 Reiniciar</button>
+            <button class="btn btn--danger" id="ctlStop">⏹️ Detener</button>
+            <span id="ctlMsg" class="muted"></span>
+          </div>
+          <details style="margin-top:6px">
+            <summary class="muted" style="cursor:pointer;font-size:0.85em">📋 Comandos manuales (referencia SSH)</summary>
+            <pre class="logs" style="margin-top:8px">cd /opt/proyectos/rtb/mailserver
 
 docker compose ps                 # estado
 docker compose up -d              # levantar
@@ -196,6 +204,7 @@ docker compose restart            # reiniciar
 docker logs --tail 200 mailserver # ver logs
 docker exec mailserver setup email list   # listar buzones
 docker stats --no-stream mailserver       # CPU / memoria</pre>
+          </details>
         </div>
       </section>
 
