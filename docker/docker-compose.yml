@@ -4,7 +4,7 @@ services:
     image: nginx:latest
     container_name: rtb_web
     volumes:
-      - ../web/html:/usr/share/nginx/html:ro
+      - ../web/RTB_Web/frontend:/usr/share/nginx/html:ro
       - ../web/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro   # webroot ACME challenge (certbot sin downtime)
@@ -12,6 +12,10 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     networks:
       - rtbnet
 
@@ -31,6 +35,10 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4g
     networks:
       - rtbnet
 
@@ -42,6 +50,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     networks:
       - rtbnet
 
@@ -54,6 +66,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     networks:
       - rtbnet
 
@@ -70,6 +86,10 @@ services:
       - extra_params=--o:ssl.enable=false
     expose:
       - "9980"    # Solo red interna rtbnet — nginx proxea office.refacrtb.com.mx (B3.6)
+    deploy:
+      resources:
+        limits:
+          memory: 2g
     networks:
       - rtbnet
 
@@ -87,6 +107,10 @@ services:
       - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=100M
     volumes:
       - roundcube_data:/var/www/html
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     networks:
       - rtbnet
 
@@ -97,4 +121,3 @@ networks:
 
 volumes:
   roundcube_data:
-
