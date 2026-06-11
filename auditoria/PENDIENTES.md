@@ -13,8 +13,8 @@
 ## Bloque 1 — Secretos (🔴, esf. B)
 - [x] **B1.1** Mover secretos de `docker-compose.yml` a `.env` gitignored (`${VAR}`) — **HECHO 2026-06-11**. Variables en `.env` (gitignored), compose usa `${VAR}`
 - [x] **B1.2** Rotar: password admin Nextcloud, `POSTGRES_PASSWORD`/`oc_admin`, Collabora — **HECHO 2026-06-11**. Contraseñas hex-32/40 generadas con openssl; ALTER USER oc_admin + occ user:resetpassword + recrear collabora. Respaldo en `/opt/backups/new-secrets-20260611.txt` (chmod 600)
-- [ ] **B1.3** Sacar compose con secretos del historial de git — compose YA estaba limpio (usaba `${VAR}`); queda pendiente evaluar purga de commit `90e2626c` donde quedó `docker/.env.mailu` con SECRET_KEY de Mailu (retirado 2026-06-11, tratado como comprometido)
-- [ ] **B1.4** Cambiar admin Nextcloud (`admin`): crear cuenta nominal, deshabilitar `admin` — password rotado (B1.2), pendiente crear cuenta nominal
+- [x] **B1.3** Purga historial git — **HECHO 2026-06-11**. `git filter-repo --invert-paths --path docker/.env.mailu` eliminó el archivo de toda la historia. Hash commit inicial cambió `90e2626c` → `254f27aa`. Force-push a `origin` (ambas ramas + tags). Bundle pre-purga en `/opt/backups/rtb-repo-pre-purge-20260611.bundle` (222 MB).
+- [x] **B1.4** Deshabilitar `admin` genérico Nextcloud — **HECHO 2026-06-11**. `occ user:disable admin` (`enabled: false`). Cuentas nominales con rol admin: `Encargado_Sistemas` (Diego) y `Gerente_G` (Sergio). Rollback: `occ user:enable admin`.
 
 ## Bloque 2 — Resiliencia del host (🔴, esf. B)
 - [x] **B2.1** Crear swapfile 4 GB — **HECHO** (creado en sesión previa, activo: 4 GiB, 2 MiB usado; vm.swappiness=10; `/etc/fstab` actualizado)
@@ -23,10 +23,10 @@
 ## Bloque 3 — Perímetro y accesos (🟠, esf. B)
 > Detalle ampliado en [AUDITORIA-ACCESOS.md](AUDITORIA-ACCESOS.md) (anexo de accesos, 2026-06-09).
 - [x] **B3.1** Cerrar Portainer `:9443` en UFW — **HECHO 2026-06-11**. Port binding cambiado a `127.0.0.1:9443:9443`; `ufw delete allow 9443` ejecutado (ambas versiones IPv4/IPv6)
-- [ ] **B3.2** SSH key-only: el `no` ya está en el config principal pero lo **anula `50-cloud-init.conf` (`yes`)**; corregir ese drop-in o añadir uno de orden menor, `sshd -t` + reload, verificar sesión nueva — *A1*
+- [~] **B3.2** SSH key-only: **PARCIAL 2026-06-11**. El operador decidió mantener `PasswordAuthentication yes` (acceso multi-dispositivo con contraseña). Se creó drop-in `01-rtb-hardening.conf` con `AllowUsers` (B3.5). Clave Ed25519 generada y agregada a `authorized_keys` (complementa la RSA preexistente `dhgui@XREX_LAP`). Riesgo aceptado: password habilitado.
 - [x] **B3.3** `diegoadmin1`/`diegoadmin2` **deshabilitadas 2026-06-09** (`usermod -L -e 1`: bloqueadas + expiradas a 1970-01-02; reversible). Siguen en grupo `sudo` pero ya no pueden autenticarse — *A3/A7*
-- [ ] **B3.4** Quitar/acotar `sudo NOPASSWD: ALL` de `rtbadmin` (hoy = punto único de fallo: sudo+docker+NOPASSWD) — *A2*
-- [ ] **B3.5** Añadir `AllowUsers rtbadmin` (o `AllowGroups sudo`) a sshd — *A4*
+- [ ] **B3.4** Quitar/acotar `sudo NOPASSWD: ALL` de `rtbadmin` — **riesgo aceptado por el operador (2026-06-11)**. No acotar por ahora.
+- [x] **B3.5** `AllowUsers rtbadmin root` en sshd — **HECHO 2026-06-11**. Drop-in `/etc/ssh/sshd_config.d/01-rtb-hardening.conf` con `AllowUsers rtbadmin root`. `root` incluido para el backup-pull del Pi (forced-commands-only). Reload exitoso, sesiones activas no afectadas.
 - [x] **B3.6** Bindear puertos Docker de gestión a `127.0.0.1` — **HECHO 2026-06-11**. Collabora: `ports` → `expose` (solo red interna, nginx proxea `office.`). Portainer: `127.0.0.1:9443`. Verificado desde exterior: `:9980`/`:9443` → rechazados
 - [x] **B3.7** `passwd -l root` **hecho 2026-06-09** (contraseña de root bloqueada; el backup por llave+comando forzado sigue intacto) — *A8*
 
@@ -36,8 +36,8 @@
 - [x] **B4.3** `git rm -r --cached docker/nextcloud/data` — **HECHO 2026-06-11**. 30 063 archivos desindexados (~228 MB del repo); patrón añadido a `.gitignore`
 
 ## Bloque 5 — Madurez infra (🟠–🟡, esf. M)
-- [ ] **B5.1** `apt upgrade` (52 updates, 19 seguridad) en ventana
-- [ ] **B5.2** Reinicio del host (kernel atrás, >322 d uptime) — con backups listos
+- [x] **B5.1** `apt upgrade` — **HECHO 2026-06-11**. 32 paquetes actualizados (incluye Docker 28.3→29.5.3, containerd, nftables, apparmor, cloud-init, snapd). 2 held-back: `libnetplan0`/`netplan.io`. Sin kernel nuevo, sin reboot-required. Servicios del sistema reiniciados (auditd, networkd, resolved…); contenedores Docker se reiniciaron automáticamente con el daemon — todos healthy.
+- [x] **B5.2** Reinicio del host — **NO APLICA (2026-06-11)**. El host ya arrancó el 2026-06-09 23:42 con el kernel más reciente instalado (`5.15.0-181-generic`). Sin `reboot-required` y sin kernel en los updates de B5.1. Cerrado.
 - [x] **B5.3** Healthchecks por contenedor — **HECHO 2026-06-11**. postgres:`pg_isready`, nextcloud:`curl /status.php`, nginx:`curl localhost/`, collabora:`curl /hosting/discovery`, roundcube:`curl localhost/`, portainer:`wget /api/status`. `depends_on: condition: service_healthy` en nextcloud→postgres
 - [x] **B5.4** Fijar tags de imágenes — **HECHO 2026-06-11**. nginx:1 (→tiró 1.31.1 con parches), nextcloud:31, postgres:15, portainer/portainer-ce:lts. Collabora/roundcube sin tag semver estable upstream documentados
 - [ ] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx)
@@ -56,20 +56,15 @@
 - [x] **N8** Basura en `docker/` y `mailserver/fail2ban/jail.local.bak` — **RESUELTO 2026-06-11**. Archivos `=`, `[internal]`, `reading`, `transferring` y `jail.local.bak` eliminados
 - [x] **B6.2** `nextcloud.log` sin rotar (era **41 GB**, no 554 MB) — **RESUELTO 2026-06-11**. `log_rotate_size=100MB` vía occ; log truncado (liberó ~41 GB de disco, uso /: 48%→46%)
 
-## Pendientes que quedan tras sesión 2026-06-11
+## Pendientes que quedan tras sesión 2026-06-11 (actualizado)
 | Clave | Qué falta | Prioridad |
 |-------|-----------|-----------|
 | B0.1 | Snapshot VPS en panel IONOS (manual) | 🔴 |
 | B0.3 | Backup externo NC→Raspberry Pi (hardware SSD) | 🔴 |
 | B0.4 | Prueba restore real en contenedor desechable | 🔴 |
-| B1.3 | Purga historial git (commit `90e2626c` con SECRET_KEY Mailu) | 🟠 |
-| B1.4 | Crear cuenta admin nominal en NC, deshabilitar `admin` | 🟠 |
-| B3.2 | SSH PasswordAuthentication corregir drop-in cloud-init | 🟠 |
-| B3.4 | Acotar sudo NOPASSWD:ALL de rtbadmin | 🟠 |
-| B3.5 | AllowUsers en sshd | 🟠 |
+| B3.2 | SSH: password habilitado (riesgo aceptado; Ed25519 disponible como alternativa) | 🟠 |
+| B3.4 | Acotar sudo NOPASSWD:ALL de rtbadmin (riesgo aceptado) | 🟠 |
 | B4.1 | Decidir OnlyOffice (`app.`) y api_rtb | 🟡 |
-| B5.1 | apt upgrade (52 paquetes, 19 seguridad) | 🟠 |
-| B5.2 | Reinicio de host (kernel desactualizado) | 🟠 |
 | B5.5 | Segmentar red `db` (postgres fuera de rtbnet con nginx) | 🟡 |
 | N7 | Actualizar NC 31.0.7→31.0.14 + apps + evaluar Redis | 🟡 |
 | B6.1 | DMARC rua + CNAMEs DKIM MailerSend | 🟡 |
@@ -83,3 +78,4 @@
 - **2026-06-09** — B0.3 iniciado y PAUSADO: VPS+Pi configurados, test OK; 1ª sync falló por hardware (SSD USB se desconecta por potencia). Sesión abierta en `SESION-ABIERTA.md`.
 - **2026-06-11** — Sesión de endurecimiento de la nube completada. Cerrados: B1.1, B1.2, B2.1 (ya estaba), B2.2, B3.1, B3.6, B4.2, B4.3, B5.3, B5.4, B6.2, N1–N6, N8. Parcial: N7. 10 commits en rama `feat/dashboard-correo-multiadmin`. Detalle en [SESION-NUBE-2026-06-11.md](SESION-NUBE-2026-06-11.md).
 - **2026-06-11** — **Incidente 2FA admin Nextcloud**: tras rotación de contraseña el usuario no podía entrar (TOTP + notificación NC fallaban). Ambos factores deshabilitados vía `occ twofactorauth:disable`. **Pendiente: reconfigurar TOTP** en Configuración → Seguridad.
+- **2026-06-11** — Sesión de cierre de pendientes. Cerrados: B1.3 (purga git + force-push, bundle en `/opt/backups/`), B1.4 (`occ user:disable admin`), B3.5 (`AllowUsers rtbadmin root` en drop-in `01-rtb-hardening.conf`), B5.1 (apt upgrade 32 paquetes, Docker 29.5.3), B5.2 (no-aplica: kernel ya actualizado). Clave Ed25519 generada para rtbadmin. B3.2/B3.4: riesgo aceptado por el operador.
