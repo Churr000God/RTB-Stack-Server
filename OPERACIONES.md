@@ -39,7 +39,7 @@ Para operación del día a día, usa el panel web:
 
 - URL: **https://www.refacrtb.com.mx/admin/**
 - Acceso: **usuario + contraseña** (usuario raíz `admin`). El login inicial usa el hash de `ADMIN_PASSWORD_HASH` del `.env`.
-- Es un **dashboard por pestañas**: **Panel** (KPIs), **Buzones**, **Almacenamiento** (por dominio), **Auditoría**, **Guía de conexión** (+ instructivos por buzón), **Verificador DNS**, **Monitor** (estado/logs del contenedor + respaldos) y **Administradores** (solo rol admin).
+- Es un **dashboard por pestañas**: **Panel** (KPIs), **Buzones**, **Almacenamiento** (por dominio), **Auditoría**, **Guía de conexión** (+ instructivos por buzón), **Verificador DNS**, **Monitor** (estado/logs del contenedor mailserver + respaldos), **🖥️ Servidor** (host + todos los contenedores + PM2 + fail2ban) y **Administradores** (solo rol admin).
 - Sesión: cookie httpOnly, expira a las 4 h de inactividad. Tras 5 intentos fallidos en 15 min se bloquea la IP.
 
 **Buzones — acciones por fila:** listar (con cuota usada y estado, agrupado por dominio + búsqueda), crear, cambiar contraseña, definir cuota, suspender/reactivar, vaciar correos, eliminar, **descargar instructivo** (PDF) y **descargar respaldo** (tar.gz).
@@ -60,8 +60,9 @@ Para operación del día a día, usa el panel web:
 
 - **Auditoría**: toda acción (alta/baja/contraseña/cuota/suspensión/vaciado/respaldo/login y gestión de usuarios) se registra en `backend/data/audit-log.jsonl` y se ve en la pestaña Auditoría.
 - **Verificador DNS**: comprueba MX, A (`mail.`), SPF, DKIM (selector `mail`) y DMARC del dominio vía DNS, con estado OK / Revisar / Falta.
-- **Monitor**: estado/salud, CPU y memoria del contenedor `mailserver`, últimas líneas de log y comandos esenciales.
+- **Monitor**: estado/salud, CPU y memoria del contenedor `mailserver`, últimas líneas de log, respaldos y comandos esenciales.
 - **Respaldos**: descarga `tar.gz` por **buzón** (pestaña Buzones), por **dominio** (Almacenamiento) o **total** (Monitor). Se generan en streaming vía `docker exec … tar` (solo lectura, sin archivo temporal). El total pesa ~9 GB y puede tardar varios minutos.
+- **Servidor** (2026-06-12): panel de infraestructura general. Ver sección dedicada más abajo.
 
 Los comandos CLI siguen disponibles para emergencias o operaciones masivas:
 
@@ -169,6 +170,28 @@ docker exec -u www-data nextcloud php occ files:scan --all
 docker exec -u www-data -ti nextcloud php occ user:add nombreusuario
 ```
 
+### Pestaña Servidor — panel de infraestructura (2026-06-12)
+
+Accesible desde el panel admin (`/admin/` → pestaña 🖥️ Servidor). Visible para ambos roles; acciones destructivas solo para `admin`.
+
+| Sección | Qué muestra / permite |
+|---|---|
+| **Métricas del host** | CPU (núcleos, modelo), carga 1/5/15 min, RAM usada/total, swap (aviso si = 0), disco `/`, uptime |
+| **Contenedores Docker** | Los 8 contenedores con estado, CPU%, RAM, botones Iniciar / Reiniciar / Detener por fila |
+| **Backend PM2** | Estado de `rtb_backend`: cpu, mem, uptime, reinicios; botón Reiniciar (responde antes de ejecutar el restart) |
+| **Fail2ban** | Jails del contenedor `mailserver` con fallidos, baneados actuales, total y lista de IPs baneadas |
+| **Visor de logs** | Tail de 300 líneas o streaming en vivo (SSE) de cualquiera de los 8 contenedores |
+
+Todas las acciones quedan registradas en `audit-log.jsonl` con el usuario real y el nombre del contenedor.
+
+Los contenedores permitidos son exactamente: `rtb_web`, `nextcloud`, `postgres`, `redis`, `collabora`, `roundcube`, `portainer`, `mailserver`.
+
+> **Nota sobre `rtb_web`:** detenerlo o reiniciarlo interrumpe el acceso web y al propio panel — el panel avisa con `confirm()` y vuelve solo cuando el contenedor sube.
+
+Backend: `routes/serverOpsRoutes.js` montado en `/api/admin/system`. Parsers de sistema en `utils/systemExec.js`. Tests: `node web/RTB_Web/backend/test/systemExec.test.js`.
+
+---
+
 ## Backend Node (PM2)
 
 ```bash
@@ -187,15 +210,7 @@ pm2 save
 
 ## API Python (api_rtb)
 
-```bash
-# Diagnóstico rápido del crash actual
-docker logs api_rtb --tail 5
-
-# Reconstruir si se modifica el Dockerfile
-cd /opt/proyectos/rtb/api
-docker build -t docker-api .
-docker restart api_rtb
-```
+**Estado (2026-06-11): eliminado** — contenedor e imagen borrados. El endpoint `POST /api/contacto` lo cubre el backend Node. Ver MEJORAS.md O2.
 
 ## Certificados Let's Encrypt
 

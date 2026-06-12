@@ -120,21 +120,24 @@ Prioridad: 🔴 crítica · 🟠 alta · 🟡 media · 🟢 baja
 
 ---
 
-### O3. Sin swap y sin monitoreo
+### O3. Sin swap y sin monitoreo externo
 
-**Diagnóstico.** 16 GB RAM, 7.8 GB en uso, **0 B swap**. Un pico de Nextcloud + ClamAV escaneando un correo grande puede causar OOM kill.
+**Diagnóstico.** 16 GB RAM, 0 B swap originalmente. Un pico de Nextcloud + ClamAV escaneando un correo grande puede causar OOM kill.
 
-No hay alertas: ni de disco lleno, ni de servicio caído, ni de cola Postfix saturada, ni de certificado por expirar.
+No hay alertas externas: ni de disco lleno, ni de servicio caído, ni de cola Postfix saturada, ni de certificado por expirar.
 
-**Impacto.** Caídas no detectadas a tiempo.
+**Impacto.** Caídas no detectadas a tiempo desde el exterior.
 
-**Propuesta.**
-- Agregar 4–8 GB de swap (`swapon`) — paliativo barato.
-- Instalar **Uptime Kuma** (1 contenedor, simple) para checks HTTP/SMTP/IMAP y alertas por email/Telegram.
-- O alternativa más completa: **Netdata** (un comando, dashboards instantáneos).
-- Plus: configurar `monit` o `systemd` para auto-reiniciar el `pm2-rtbadmin.service` si se cae.
+**Estado parcial (2026-06-12):**
+- ✅ **Panel Servidor** implementado en el dashboard admin (`/admin/` → pestaña 🖥️ Servidor): métricas del host (CPU/RAM/disco/swap/uptime/carga), estado de los 8 contenedores con CPU%/RAM, estado PM2, jails fail2ban con IPs baneadas y visor de logs en vivo (SSE). Útil para diagnóstico activo desde el panel.
+- ⚠️ **Swap**: el servidor tiene 4 GB de swap configurado (no 0 como se documentó originalmente — verificar con `free -h`). El panel Servidor muestra aviso visual si swap = 0.
+- ❌ **Alertas proactivas** (Uptime Kuma / Netdata) siguen pendientes — el panel requiere que alguien lo abra; no notifica solo.
 
-**Esfuerzo.** S (swap+Uptime Kuma); M (con dashboards).
+**Pendiente.**
+- Instalar **Uptime Kuma** (1 contenedor) para checks HTTP/SMTP/IMAP y alertas por email/Telegram.
+- Configurar `monit` o `systemd` para auto-reiniciar el `pm2-rtbadmin.service` si se cae.
+
+**Esfuerzo.** S (Uptime Kuma); M (con dashboards completos).
 
 ---
 
@@ -261,10 +264,19 @@ dominio fijo `@refacrtb.com.mx` para creaciones, roles `admin`/`operador` con `r
 - ✅ Monitor: tarjeta Salud deriva estado del contenedor; botones Levantar/Reiniciar/Detener (2026-06-11).
 - ✅ DKIM generado y operativo; DMARC `p=reject`; mail-tester.com 9.2/10 (2026-06-11).
 - ✅ Roundcube desplegado en `https://mail.refacrtb.com.mx`; envío externo verificado (2026-06-11).
+- ✅ **Pestaña 🖥️ Servidor** (2026-06-12) — monitor de infraestructura general:
+  - Métricas del host: CPU (8 núcleos), carga 1/5/15 min, RAM, swap (aviso si = 0), disco `/`, uptime.
+  - Tabla de los 8 contenedores Docker con estado, CPU%, RAM y acciones start/stop/restart (solo admin, con allowlist fija).
+  - Estado y reinicio del backend PM2 (`rtb_backend`) con retardo de seguridad pre-restart.
+  - Jails fail2ban (via `docker exec mailserver fail2ban-client`) con IPs baneadas actuales.
+  - Visor de logs: tail 300 líneas o streaming en vivo (SSE `EventSource`); se detiene al cambiar pestaña.
+  - Todas las acciones auditadas (`docker_start/stop/restart`, `pm2_restart`) en `audit-log.jsonl`.
+  - Backend: `routes/serverOpsRoutes.js` en `/api/admin/system`; parsers testeados en `test/systemExec.test.js`.
 
 **Pendientes / mejoras futuras:**
 - Suspensión que también deshabilite recepción (hoy solo bloquea login IMAP/SMTP).
 - Respaldos automatizados a almacenamiento externo (ver O1) — hoy son descargas manuales bajo demanda.
+- Alertas proactivas (Uptime Kuma / Netdata) — el panel Servidor requiere apertura manual; ver O3.
 
 ---
 
