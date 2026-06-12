@@ -1,10 +1,10 @@
 [DEFAULT]
 
 # "bantime" is the number of seconds that a host is banned.
-bantime = 1w
+# 1h para errores de tipeo en dovecot/postfix; el jail [custom] usa 180d para bans manuales.
+bantime = 1h
 
-# A host is banned if it has generated "maxretry" during the last "findtime"
-# seconds.
+# A host is banned if it has generated "maxretry" durante los últimos findtime segundos.
 findtime = 1w
 
 # "maxretry" is the number of failures before a host get banned.
@@ -16,9 +16,9 @@ maxretry = 6
 ignoreip = 127.0.0.1/8 ::1 192.168.0.0/24 201.141.108.178
 
 # default ban action
-# nftables-multiport: block IP only on affected port
-# nftables-allports:  block IP on all ports
-banaction = nftables-allports
+# nftables-multiport: block IP only on affected port (correo)
+# nftables-allports:  block IP on all ports — NO usar, bloquea HTTPS/SSH también
+banaction = nftables-multiport
 
 [dovecot]
 enabled = true

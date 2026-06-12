@@ -38,6 +38,16 @@ mailserver/mailserver.secret.env
 # .env del backend (contiene ADMIN_PASSWORD_HASH y SESSION_SECRET)
 web/RTB_Web/backend/.env
 
+# Secretos del stack web (Nextcloud, Postgres, Collabora)
+docker/.env
+
+# Mailu (retirado 2026-06-11, no está en uso; SECRET_KEY comprometido → no reutilizar)
+docker/.env.mailu
+docker/mailu/
+
+# Datos de Nextcloud trackeados por error (30k archivos, ~228 MB) — datos reales en nextcloud/data
+docker/nextcloud/data/
+
 # Estado runtime del panel admin (cuentas suspendidas)
 web/RTB_Web/backend/data/*
 !web/RTB_Web/backend/data/.gitkeep

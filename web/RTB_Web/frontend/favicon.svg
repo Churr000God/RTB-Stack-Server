@@ -1,5 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#1a5f7a"/>
-  <circle cx="32" cy="32" r="18" fill="#ad9551"/>
-  <text x="32" y="38" font-family="Arial, sans-serif" font-size="20" text-anchor="middle" fill="#ffffff">R</text>
+  <!-- Fondo azul marino institucional -->
+  <rect width="64" height="64" rx="12" fill="#002b5b"/>
+  <!-- Acento teal en arco superior -->
+  <path d="M10 8 Q32 4 54 8" stroke="#57c5b6" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Círculo dorado institucional -->
+  <circle cx="32" cy="33" r="17" fill="#ad9551"/>
+  <!-- "R" blanca -->
+  <text x="32" y="40" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="700"
+        text-anchor="middle" fill="#ffffff">R</text>
+  <!-- Punto teal inferior -->
+  <circle cx="32" cy="57" r="3" fill="#159895"/>
 </svg>

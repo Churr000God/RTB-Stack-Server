@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Guía de configuración de correo · RTB</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="instructivo.css">
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button class="btn btn--primary" id="printBtn">📄 Descargar PDF</button>
+    <button class="btn" onclick="window.close()">Cerrar</button>
+  </div>
+
+  <main class="doc" id="doc">
+    <header class="doc__head">
+      <img class="doc__logo" src="/assets/img/comunes/logo_rtb.png" alt="Refacciones Tomás Badillo">
+      <div class="doc__head-text">
+        <h1>Guía de configuración de correo</h1>
+        <p class="sub">Instrucciones para acceder y configurar su cuenta de correo electrónico</p>
+      </div>
+    </header>
+
+    <section class="box box--accent">
+      <h2>📋 Sus datos de acceso</h2>
+      <table class="kv">
+        <tr><td>Correo</td><td><strong id="acc-email">—</strong></td></tr>
+        <tr><td>Contraseña</td><td>La proporcionó su administrador</td></tr>
+      </table>
+      <p class="note"><strong>Importante:</strong> Guarde esta información en un lugar seguro. Si olvidó su
+        contraseña, contacte al administrador para que la restablezca desde el panel.</p>
+    </section>
+
+    <section>
+      <h2>🌐 Opción 1 — Correo web (desde el navegador)</h2>
+      <p>Acceda a su correo desde cualquier navegador sin instalar nada. Compatible con Chrome, Firefox, Safari y Edge.</p>
+      <ol>
+        <li>Abra el siguiente enlace: <a id="webmail-link" href="#">—</a></li>
+        <li>En el campo <em>Usuario</em> escriba su dirección completa: <strong id="acc-email-2">—</strong></li>
+        <li>Escriba su contraseña y haga clic en <em>Iniciar sesión</em>.</li>
+        <li>Se abrirá su bandeja de entrada: desde ahí podrá enviar, recibir y organizar correos.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>💼 Opción 2 — Microsoft Outlook</h2>
+      <ol>
+        <li>Abra Outlook y vaya a <em>Archivo › Agregar cuenta</em>.</li>
+        <li>Ingrese su dirección de correo y haga clic en <em>Conectar</em>.</li>
+        <li>Si la autoconfiguración falla, elija <em>Configuración manual</em> y tipo de cuenta <strong>IMAP</strong>.</li>
+        <li>Ingrese los valores del servidor de las tablas siguientes.</li>
+        <li>Escriba su contraseña y haga clic en <em>Conectar</em>. ¡Listo!</li>
+      </ol>
+
+      <div class="tables">
+        <div>
+          <h3>📥 Correo entrante — IMAP</h3>
+          <table class="srv">
+            <tr><td>Servidor</td><td id="imap-host">—</td></tr>
+            <tr><td>Puerto</td><td id="imap-port">—</td></tr>
+            <tr><td>Cifrado</td><td id="imap-sec">—</td></tr>
+            <tr><td>Usuario</td><td class="acc-email">—</td></tr>
+            <tr><td>Contraseña</td><td>su contraseña</td></tr>
+          </table>
+        </div>
+        <div>
+          <h3>📤 Correo saliente — SMTP</h3>
+          <table class="srv">
+            <tr><td>Servidor</td><td id="smtp-host">—</td></tr>
+            <tr><td>Puerto</td><td id="smtp-port">—</td></tr>
+            <tr><td>Cifrado</td><td id="smtp-sec">—</td></tr>
+            <tr><td>Usuario</td><td class="acc-email">—</td></tr>
+            <tr><td>Contraseña</td><td>su contraseña</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>📱 Opción 3 — iPhone, iPad y Android</h2>
+      <p>Use los mismos datos de servidor en la app de correo nativa de su dispositivo.</p>
+      <ul>
+        <li><strong>iPhone / iPad:</strong> Ajustes › Correo › Cuentas › Añadir cuenta › Otra › Añadir cuenta de correo.</li>
+        <li><strong>Android:</strong> Ajustes › Añadir cuenta › Otra.</li>
+        <li>Elija <strong>IMAP</strong> y use los datos de servidor de la tabla anterior.</li>
+        <li>Entrada: puerto <strong>993</strong> con SSL/TLS. Salida: puerto <strong>587</strong> con STARTTLS.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>📋 Resumen de configuración</h2>
+      <table class="srv srv--summary">
+        <thead><tr><th>Parámetro</th><th>Entrante (IMAP)</th><th>Saliente (SMTP)</th></tr></thead>
+        <tbody>
+          <tr><td>Servidor</td><td id="s-imap-host">—</td><td id="s-smtp-host">—</td></tr>
+          <tr><td>Puerto</td><td id="s-imap-port">—</td><td id="s-smtp-port">—</td></tr>
+          <tr><td>Cifrado</td><td id="s-imap-sec">—</td><td id="s-smtp-sec">—</td></tr>
+          <tr><td>Usuario</td><td class="acc-email">—</td><td class="acc-email">—</td></tr>
+          <tr><td>Contraseña</td><td>su contraseña</td><td>su contraseña</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="box">
+      <h2>💡 Consejos</h2>
+      <ul>
+        <li>Siempre use su dirección de correo completa como usuario (incluyendo el @dominio).</li>
+        <li>Si tiene problemas desde una red corporativa, consulte con su área de sistemas — algunos firewalls bloquean los puertos de correo.</li>
+        <li>Puede configurar su cuenta en varios dispositivos a la vez usando IMAP; sus correos se sincronizan automáticamente.</li>
+        <li>Si olvidó su contraseña, contacte al administrador para que la restablezca.</li>
+      </ul>
+    </section>
+
+    <footer class="doc__foot"><strong>Refacciones Tomás Badillo</strong> · refacrtb.com.mx</footer>
+  </main>
+
+  <script src="instructivo.js"></script>
+</body>
+</html>

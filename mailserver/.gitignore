@@ -1,0 +1,7 @@
+# Datos de correo real (nunca al repo)
+mail-data/
+mail-state/
+mail-log/
+
+# Clave privada DKIM (secreta — solo el servidor la necesita)
+config/opendkim/keys/**/*.private

@@ -1,17 +1,30 @@
 :root {
-  --bg: #f5f6f8;
+  /* ── Marca institucional RTB ── */
+  --brand-navy:      #002b5b;
+  --brand-petrol:    #1A5F7A;
+  --brand-teal:      #159895;
+  --brand-teal-soft: #57c5b6;
+  --brand-gold:      #ad9551;
+
+  /* ── Superficie / layout ── */
+  --bg:      #eef1f4;
   --surface: #ffffff;
-  --border: #e2e5ea;
-  --text: #1d2330;
-  --muted: #6b7280;
-  --primary: #c0392b;
-  --primary-dark: #962c20;
-  --danger: #b91c1c;
+  --border:  #e2e5ea;
+  --text:    #1d2330;
+  --muted:   #6b7280;
+
+  /* ── Primarias → teal institucional ── */
+  --primary:      var(--brand-teal);
+  --primary-dark: #0f7c79;
+
+  /* ── Semánticos (rojo solo para destructivos) ── */
+  --danger:      #b91c1c;
   --danger-dark: #8a1414;
-  --success: #166534;
-  --success-bg: #dcfce7;
-  --error: #991b1b;
-  --error-bg: #fee2e2;
+  --success:     #166534;
+  --success-bg:  #dcfce7;
+  --error:       #991b1b;
+  --error-bg:    #fee2e2;
+
   --radius: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
@@ -27,18 +40,60 @@ html, body {
   font-size: 15px;
 }
 
+/* ──────────── Topbar institucional ──────────── */
 .topbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 28px;
+  background: linear-gradient(90deg, var(--brand-navy) 0%, var(--brand-petrol) 100%);
+  border-bottom: none;
+  padding: 12px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.topbar__title { font-weight: 600; }
-.topbar__right { display: flex; align-items: center; gap: 16px; }
-.topbar__who { color: var(--muted); font-size: 13px; }
 
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Chip blanco para dar fondo al logo sobre navy */
+.brand-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 4px 6px;
+  line-height: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.brand-badge img {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+.topbar__title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+.topbar__right { display: flex; align-items: center; gap: 16px; }
+.topbar__who { color: rgba(255,255,255,0.72); font-size: 13px; }
+
+/* Botón ghost dentro del topbar (texto claro) */
+.topbar .btn--ghost {
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.38);
+  background: transparent;
+}
+.topbar .btn--ghost:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.55);
+}
+
+/* ──────────── Layout principal ──────────── */
 .main {
   max-width: 1100px;
   margin: 32px auto;
@@ -55,9 +110,6 @@ html, body {
 }
 
 .card--no-pad { padding: 0; }
-
-#loginView { max-width: 420px; margin: 60px auto; }
-#loginView h1 { margin-top: 0; }
 
 .row { display: flex; align-items: center; gap: 12px; }
 .row--space { justify-content: space-between; margin-bottom: 16px; }
@@ -83,6 +135,7 @@ input[type="text"], input[type="password"] {
 }
 input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-color: var(--primary); }
 
+/* ──────────── Botones ──────────── */
 .btn {
   display: inline-block;
   padding: 9px 16px;
@@ -104,7 +157,82 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
 .btn--danger:hover { background: var(--danger-dark); border-color: var(--danger-dark); }
 .btn--ghost { background: transparent; }
 .btn--small { padding: 5px 10px; font-size: 12px; }
+.btn--block { width: 100%; text-align: center; justify-content: center; margin-top: 18px; }
 
+/* ──────────── Login ──────────── */
+.login {
+  min-height: calc(100vh - 70px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.login__card {
+  background: linear-gradient(160deg, var(--brand-navy) 0%, var(--brand-petrol) 100%);
+  border-top: 3px solid var(--brand-gold);
+  border-radius: 14px;
+  padding: 36px 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  text-align: center;
+}
+
+.login__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.login__badge img {
+  height: 56px;
+  width: auto;
+  display: block;
+}
+
+.login__card h1 {
+  color: #ffffff;
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  text-align: center;
+}
+.login__sub {
+  color: var(--brand-teal-soft);
+  font-size: 13px;
+  margin: 0 0 22px;
+  text-align: center;
+}
+
+.login__card label {
+  color: rgba(255,255,255,0.85);
+  text-align: left;
+}
+.login__card input[type="text"],
+.login__card input[type="password"] {
+  background: #ffffff;
+  color: var(--text);
+  border-color: rgba(255,255,255,0.3);
+}
+.login__card input:focus {
+  outline-color: var(--brand-teal-soft);
+  border-color: var(--brand-teal-soft);
+}
+.login__card .error {
+  color: #fca5a5;
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 18px;
+  text-align: center;
+}
+
+/* ──────────── Tablas de cuentas ──────────── */
 .accounts {
   width: 100%;
   border-collapse: collapse;
@@ -117,15 +245,15 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
   vertical-align: middle;
 }
 .accounts th {
-  background: #fafafa;
+  background: #f3f6f9;
   font-weight: 600;
-  color: #4b5563;
+  color: var(--brand-petrol);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .accounts tr:last-child td { border-bottom: none; }
-.accounts tr:hover td { background: #fafbfc; }
+.accounts tr:hover td { background: #f7fafb; }
 .accounts .col-email { font-weight: 500; word-break: break-all; min-width: 180px; }
 .accounts .col-actions { white-space: normal; }
 
@@ -138,6 +266,7 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
   justify-content: flex-end;
 }
 
+/* ──────────── Botones icónicos ──────────── */
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -166,6 +295,7 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
 .btn-icon--danger { color: var(--danger); border-color: #fecaca; }
 .btn-icon--danger:hover { background: #fee2e2; border-color: #fca5a5; }
 
+/* ──────────── Badges / etiquetas ──────────── */
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -175,10 +305,12 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.badge--ok { background: #dcfce7; color: #166534; }
+.badge--ok  { background: #dcfce7; color: #166534; }
 .badge--off { background: #fee2e2; color: #991b1b; }
+.badge--warn { background: #fef3c7; color: #92400e; }
 
-.muted { color: var(--muted); font-size: 13px; }
+/* ──────────── Utilidades ──────────── */
+.muted  { color: var(--muted); font-size: 13px; }
 .hidden { display: none !important; }
 
 .error {
@@ -188,15 +320,17 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
   min-height: 18px;
 }
 
+/* ──────────── Flash ──────────── */
 .flash {
   padding: 10px 14px;
   border-radius: var(--radius);
   margin-bottom: 16px;
   font-size: 14px;
 }
-.flash--ok { background: var(--success-bg); color: var(--success); }
-.flash--err { background: var(--error-bg); color: var(--error); }
+.flash--ok  { background: var(--success-bg); color: var(--success); }
+.flash--err { background: var(--error-bg);   color: var(--error); }
 
+/* ──────────── Inputs compuestos ──────────── */
 .email-input {
   display: flex;
   align-items: stretch;
@@ -218,9 +352,21 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
 .pwd-row { display: flex; gap: 8px; }
 .pwd-row input { flex: 1; }
 
+.select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface);
+}
+.select:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-color: var(--primary); }
+
+/* ──────────── Modales ──────────── */
 .modal {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.45);
   display: flex; align-items: center; justify-content: center;
   z-index: 100;
   padding: 16px;
@@ -240,6 +386,101 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
   margin-top: 18px;
 }
 
+/* ──────────── Pestañas ──────────── */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 6px 6px 0;
+}
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: color 0.12s;
+}
+.tab:hover { color: var(--brand-navy); }
+.tab.is-active {
+  color: var(--brand-teal);
+  border-bottom-color: var(--brand-teal);
+  background: rgba(21,152,149,0.06);
+}
+
+.section { animation: fade 0.15s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ──────────── KPIs ──────────── */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--brand-teal);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.kpi__val   { font-size: 24px; font-weight: 700; color: var(--brand-navy); }
+.kpi__label { color: var(--muted); font-size: 13px; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ──────────── Buscador ──────────── */
+.search { margin-bottom: 14px; max-width: 320px; }
+
+/* ──────────── Fila de dominio (agrupación) ──────────── */
+.domain-row td {
+  background: #edf3f7 !important;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--brand-navy);
+}
+
+/* ──────────── Guía de conexión ──────────── */
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.conn-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.conn-card h3 { margin: 0 0 8px; font-size: 14px; color: var(--brand-petrol); }
+.conn-card table { width: 100%; border-collapse: collapse; }
+.conn-card td { padding: 4px 6px; font-size: 13px; word-break: break-all; }
+
+/* ──────────── Logs / monitor ──────────── */
+.logs {
+  background: #0a1628;
+  color: #e2e8f0;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-height: 380px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  border: 1px solid var(--brand-navy);
+}
+
+/* ──────────── Responsive ──────────── */
 @media (max-width: 900px) {
   .accounts th, .accounts td { padding: 10px 8px; }
   .btn-icon { padding: 5px 9px; font-size: 12px; }
@@ -247,9 +488,14 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
 
 @media (max-width: 640px) {
   .main { padding: 0 12px; margin: 16px auto; }
-  .topbar { padding: 12px 16px; }
+  .topbar { padding: 10px 16px; }
+  .brand-badge img { height: 28px; }
+  .topbar__title { font-size: 14px; }
   .accounts th, .accounts td { padding: 8px 6px; font-size: 13px; }
   .accounts .col-email { min-width: 140px; font-size: 12.5px; }
   .actions { justify-content: flex-start; }
   .btn-icon { padding: 5px 7px; font-size: 11.5px; }
+  .login__card { padding: 28px 20px 22px; }
+  .login__badge { width: 64px; height: 64px; }
+  .login__badge img { height: 44px; }
 }

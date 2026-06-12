@@ -38,17 +38,30 @@ pm2 logs rtb_backend --err                       # solo errores
 Para operación del día a día, usa el panel web:
 
 - URL: **https://www.refacrtb.com.mx/admin/**
-- Acciones disponibles: listar (con cuota usada y estado), crear, cambiar contraseña, definir cuota, vaciar correos, suspender/reactivar, eliminar.
-- Autenticación: contraseña única de admin (hash en `web/RTB_Web/backend/.env`).
+- Acceso: **usuario + contraseña** (usuario raíz `admin`). El login inicial usa el hash de `ADMIN_PASSWORD_HASH` del `.env`.
+- Es un **dashboard por pestañas**: **Panel** (KPIs), **Buzones**, **Almacenamiento** (por dominio), **Auditoría**, **Guía de conexión** (+ instructivos por buzón), **Verificador DNS**, **Monitor** (estado/logs del contenedor + respaldos) y **Administradores** (solo rol admin).
 - Sesión: cookie httpOnly, expira a las 4 h de inactividad. Tras 5 intentos fallidos en 15 min se bloquea la IP.
-- Para rotar la contraseña del panel, regenerar el hash bcrypt y reemplazar `ADMIN_PASSWORD_HASH` en `.env`, luego `pm2 restart rtb_backend`.
 
-**Notas sobre el comportamiento:**
+**Buzones — acciones por fila:** listar (con cuota usada y estado, agrupado por dominio + búsqueda), crear, cambiar contraseña, definir cuota, suspender/reactivar, vaciar correos, eliminar, **descargar instructivo** (PDF) y **descargar respaldo** (tar.gz).
 
 - **Suspender** cambia la contraseña a una aleatoria y marca el buzón como `Suspendida` (estado guardado en `backend/data/mailbox-state.json`). El correo se preserva. **Reactivar** pide una contraseña nueva.
 - **Vaciar buzón** ejecuta `doveadm expunge -u <email> mailbox '*' all`: borra todos los correos en cualquier carpeta (INBOX, Sent, Drafts, Trash, etc.). Mantiene la estructura de carpetas y la cuenta activa. **Irreversible**.
 - **Cuota**: acepta sufijos `K`, `M`, `G`. Vacío o `0` = sin límite. Tras cambiarla, hay ~2 s de propagación hasta que `setup email list` la refleja; el panel hace doble refresh para mostrarla.
 - **Eliminar** borra el buzón **y todo su correo**. Doble confirmación tipeando el email. Si la cuenta es muy nueva (sin maildir creado aún), el backend pre-crea el directorio y reintenta automáticamente.
+
+**Administradores (usuarios del panel):**
+
+- Sistema **multi-admin con roles**: `admin` (acceso total + gestión de usuarios) y `operador` (gestiona buzones, pero **no** ve la sección Administradores).
+- Solo un `admin` puede **crear usuarios**, **cambiar sus contraseñas** y **eliminarlos**. Protecciones: no puedes eliminar tu propio usuario ni dejar el sistema sin ningún admin.
+- Persistencia: `backend/data/admins.json` (gitignored, hashes bcrypt, permisos `0600`). El admin raíz se siembra automáticamente desde `ADMIN_PASSWORD_HASH` la primera vez.
+- **Rotar contraseña del admin raíz:** hazlo desde el panel (pestaña Administradores → Cambiar contraseña). Para resetear desde cero, borra `backend/data/admins.json`, regenera el hash bcrypt en `ADMIN_PASSWORD_HASH` y `pm2 restart rtb_backend` (se re-siembra).
+
+**Auditoría, DNS, Monitor y Respaldos:**
+
+- **Auditoría**: toda acción (alta/baja/contraseña/cuota/suspensión/vaciado/respaldo/login y gestión de usuarios) se registra en `backend/data/audit-log.jsonl` y se ve en la pestaña Auditoría.
+- **Verificador DNS**: comprueba MX, A (`mail.`), SPF, DKIM (selector `mail`) y DMARC del dominio vía DNS, con estado OK / Revisar / Falta.
+- **Monitor**: estado/salud, CPU y memoria del contenedor `mailserver`, últimas líneas de log y comandos esenciales.
+- **Respaldos**: descarga `tar.gz` por **buzón** (pestaña Buzones), por **dominio** (Almacenamiento) o **total** (Monitor). Se generan en streaming vía `docker exec … tar` (solo lectura, sin archivo temporal). El total pesa ~9 GB y puede tardar varios minutos.
 
 Los comandos CLI siguen disponibles para emergencias o operaciones masivas:
 

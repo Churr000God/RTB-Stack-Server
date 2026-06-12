@@ -1,0 +1,3 @@
+mail._domainkey	IN	TXT	( "v=DKIM1; h=sha256; k=rsa; "
+	  "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAueYaLm86dVQQyXNuB6yPx0atm+4oCnnoE3vp8yyL7WPCDv1hwdclWZCxKNjt0+QS0qBbyAC21UyhFqS+IuZnnsUsGt/o51ig51yCkbUII21JfGiaCdkL2+7SMYM0bUIC6DPmfDCF8UJOg8UYxDh58RaAsc6fRrDYHzBBMu8V66Lh4hbfbXnjByUKJ4zAvy+hT2pLIeueNleLW0"
+	  "ic9mSsMPaYZ4bCMTXYaqZjWujtMwhV/XlJi+0huTyK6MBvMCrYvH8+9+q3SxJ+na+wtCkO48WsMjvq4YJjFdm5YK+2Ali+LD04b+G/oLjzMsUyNApjEbf99QR7uVFCo119A5M6oQIDAQAB" )  ; ----- DKIM key mail for refacrtb.com.mx

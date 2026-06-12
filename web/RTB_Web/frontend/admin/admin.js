@@ -30,6 +30,17 @@
     fallo_vaciar: "No se pudo vaciar el buzón.",
     cuota_invalida: "Formato de cuota inválido (ej: 5G, 500M, 0).",
     admin_no_configurado: "El panel no está configurado en el servidor.",
+    fallo_dashboard: "No se pudo cargar el resumen.",
+    fallo_storage: "No se pudo cargar el almacenamiento.",
+    fallo_logs: "No se pudieron obtener los logs.",
+    usuario_requerido: "Falta el usuario.",
+    usuario_invalido: "Usuario inválido (3–32: letras, números, . _ -).",
+    usuario_existente: "Ya existe un usuario con ese nombre.",
+    usuario_no_encontrado: "Usuario no encontrado.",
+    rol_invalido: "Rol inválido.",
+    permiso_denegado: "No tienes permiso para esta acción.",
+    no_autoeliminacion: "No puedes eliminar tu propio usuario.",
+    ultimo_admin: "No puedes eliminar el último administrador.",
   };
   const msg = (key) => ERRORS[key] || key || "Error desconocido.";
 
@@ -58,10 +69,20 @@
     return Array.from(arr).map(b => chars[b % chars.length]).join("");
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Estado en memoria de los buzones (para filtrar/agrupar sin re-pedir).
+  let ACCOUNTS = [];
+  // Sesión actual.
+  let SESSION = { user: null, role: null };
+
   // ──────────── Estado / vistas ────────────
   async function checkAuth() {
     const { data } = await api(`${API}/me`);
     if (data.authenticated) {
+      SESSION = { user: data.user, role: data.role };
       showAdmin();
     } else {
       showLogin();
@@ -79,20 +100,59 @@
     $("#loginView").classList.add("hidden");
     $("#adminView").classList.remove("hidden");
     $("#logoutBtn").classList.remove("hidden");
-    loadAccounts();
+    // Identidad en la barra superior.
+    $("#who").textContent = SESSION.user ? `${SESSION.user} · ${SESSION.role}` : "";
+    // La pestaña Administradores solo existe para el rol admin.
+    const isAdmin = SESSION.role === "admin";
+    $(".tab--admin").classList.toggle("hidden", !isAdmin);
+    showSection("panel");
   }
+
+  // ──────────── Router de pestañas ────────────
+  const LOADERS = {
+    panel: loadDashboard,
+    buzones: loadAccounts,
+    storage: loadStorage,
+    audit: loadAudit,
+    guide: loadGuide,
+    dns: loadDns,
+    monitor: loadMonitor,
+    users: loadUsers,
+  };
+
+  function showSection(name) {
+    $$(".section").forEach(s => s.classList.add("hidden"));
+    const sec = $(`#sec-${name}`);
+    if (sec) sec.classList.remove("hidden");
+    $$(".tab").forEach(t => t.classList.toggle("is-active", t.dataset.section === name));
+    const loader = LOADERS[name];
+    if (loader) loader();
+  }
+
+  $("#tabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (tab) showSection(tab.dataset.section);
+  });
+
+  // Botones "Refrescar" de cada sección.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-refresh]");
+    if (btn && LOADERS[btn.dataset.refresh]) LOADERS[btn.dataset.refresh]();
+  });
 
   // ──────────── Login / logout ────────────
   $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("#loginError").textContent = "";
+    const username = $("#usr").value.trim();
     const password = $("#pwd").value;
     const { res, data } = await api(`${API}/login`, {
       method: "POST",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     });
     if (res.ok) {
       $("#pwd").value = "";
+      SESSION = { user: data.user, role: data.role };
       showAdmin();
     } else {
       $("#loginError").textContent = msg(data.error);
@@ -104,7 +164,7 @@
     showLogin();
   });
 
-  // ──────────── Listar cuentas ────────────
+  // ──────────── Buzones: listar + agrupar + buscar ────────────
   async function loadAccounts() {
     const tbody = $("#accountsTbody");
     tbody.innerHTML = `<tr><td colspan="6" class="muted">Cargando…</td></tr>`;
@@ -114,44 +174,66 @@
       tbody.innerHTML = `<tr><td colspan="6" class="error">${msg(data.error)}</td></tr>`;
       return;
     }
-    if (!data.accounts.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">No hay cuentas.</td></tr>`;
+    ACCOUNTS = data.accounts || [];
+    renderAccounts($("#searchBox").value.trim().toLowerCase());
+    renderGuideList($("#guideSearch").value.trim().toLowerCase());
+  }
+
+  function groupByDomain(accounts) {
+    const map = new Map();
+    for (const a of accounts) {
+      const dom = (a.email.split("@")[1] || "—").toLowerCase();
+      if (!map.has(dom)) map.set(dom, []);
+      map.get(dom).push(a);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
+  function renderAccounts(filter) {
+    const tbody = $("#accountsTbody");
+    const list = filter ? ACCOUNTS.filter(a => a.email.toLowerCase().includes(filter)) : ACCOUNTS;
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Sin resultados.</td></tr>`;
       return;
     }
-    tbody.innerHTML = data.accounts.map(a => {
-      const e = escapeHtml(a.email);
-      const badge = a.suspended
-        ? `<span class="badge badge--off">Suspendida</span>`
-        : `<span class="badge badge--ok">Activa</span>`;
-      const toggleBtn = a.suspended
-        ? `<button class="btn-icon btn-icon--ok" data-action="unsuspend" data-email="${e}" title="Reactivar buzón"><span class="ico">▶</span> Reactivar</button>`
-        : `<button class="btn-icon" data-action="suspend" data-email="${e}" title="Suspender buzón"><span class="ico">⏸</span> Suspender</button>`;
-      return `
-        <tr class="${a.suspended ? "suspended" : ""}">
-          <td class="col-email">${e}</td>
-          <td>${badge}</td>
-          <td>${escapeHtml(a.usado)}</td>
-          <td>${escapeHtml(a.cuota)}</td>
-          <td>${a.porcentaje}%</td>
-          <td class="col-actions">
-            <div class="actions">
-              <button class="btn-icon" data-action="pwd" data-email="${e}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Contraseña</button>
-              <button class="btn-icon" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}" title="Definir cuota"><span class="ico">\u{1F4CA}</span> Cuota</button>
-              ${toggleBtn}
-              <button class="btn-icon btn-icon--danger" data-action="empty" data-email="${e}" title="Vaciar correos"><span class="ico">\u{1F9F9}</span> Vaciar</button>
-              <button class="btn-icon btn-icon--danger" data-action="del" data-email="${e}" title="Eliminar buzón"><span class="ico">\u{1F5D1}</span> Eliminar</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
+    let html = "";
+    for (const [dom, accts] of groupByDomain(list)) {
+      html += `<tr class="domain-row"><td colspan="6">📂 ${escapeHtml(dom)} <span class="muted">(${accts.length} buzón${accts.length === 1 ? "" : "es"})</span></td></tr>`;
+      for (const a of accts) {
+        const e = escapeHtml(a.email);
+        const badge = a.suspended
+          ? `<span class="badge badge--off">Suspendida</span>`
+          : `<span class="badge badge--ok">Activa</span>`;
+        const toggleBtn = a.suspended
+          ? `<button class="btn-icon btn-icon--ok" data-action="unsuspend" data-email="${e}" title="Reactivar buzón"><span class="ico">▶</span> Reactivar</button>`
+          : `<button class="btn-icon" data-action="suspend" data-email="${e}" title="Suspender buzón"><span class="ico">⏸</span> Desactivar</button>`;
+        html += `
+          <tr class="${a.suspended ? "suspended" : ""}">
+            <td class="col-email">${e}</td>
+            <td>${badge}</td>
+            <td>${escapeHtml(a.usado)}</td>
+            <td>${escapeHtml(a.cuota)}</td>
+            <td>${a.porcentaje}%</td>
+            <td class="col-actions">
+              <div class="actions">
+                <button class="btn-icon" data-action="pwd" data-email="${e}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Pass</button>
+                <button class="btn-icon" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}" title="Definir cuota"><span class="ico">\u{1F4BE}</span> Quota</button>
+                ${toggleBtn}
+                <button class="btn-icon" data-action="instructivo" data-email="${e}" title="Ver instructivo"><span class="ico">\u{1F4C4}</span> Instructivo</button>
+                <button class="btn-icon" data-action="backup" data-email="${e}" title="Descargar respaldo"><span class="ico">\u{1F4BE}</span> Respaldo</button>
+                <button class="btn-icon btn-icon--danger" data-action="empty" data-email="${e}" title="Vaciar correos"><span class="ico">\u{1F9F9}</span> Vaciar</button>
+                <button class="btn-icon btn-icon--danger" data-action="del" data-email="${e}" title="Eliminar buzón"><span class="ico">\u{1F5D1}</span> Eliminar</button>
+              </div>
+            </td>
+          </tr>`;
+      }
+    }
+    tbody.innerHTML = html;
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
+  $("#searchBox").addEventListener("input", (e) => renderAccounts(e.target.value.trim().toLowerCase()));
 
-  // Delegación de clicks de la tabla
+  // Delegación de clicks de la tabla de buzones
   $("#accountsTbody").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
@@ -163,7 +245,224 @@
     else if (action === "empty") openEmptyModal(email);
     else if (action === "suspend") openSuspendModal(email);
     else if (action === "unsuspend") openUnsuspendModal(email);
+    else if (action === "instructivo") openInstructivo(email);
+    else if (action === "backup") downloadBackup(`account/${encodeURIComponent(email)}`);
   });
+
+  function openInstructivo(email) {
+    window.open(`instructivo.html?email=${encodeURIComponent(email)}`, "_blank", "noopener");
+  }
+
+  // Descargas autenticadas (cookie same-origin) — un enlace temporal dispara el navegador.
+  function downloadBackup(pathSuffix) {
+    const a = document.createElement("a");
+    a.href = `${MAIL_API}/backup/${pathSuffix}`;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    flash("Preparando respaldo… la descarga iniciará en breve.", "ok");
+  }
+
+  // ──────────── Dashboard ────────────
+  async function loadDashboard() {
+    const kpis = $("#kpis");
+    kpis.innerHTML = `<div class="muted">Cargando…</div>`;
+    const { res, data } = await api(`${MAIL_API}/dashboard`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) { kpis.innerHTML = `<div class="error">${msg(data.error)}</div>`; return; }
+    const c = data.contenedor || {};
+    const cBadge = c.status === "running"
+      ? `<span class="badge badge--ok">running</span>`
+      : `<span class="badge badge--off">${escapeHtml(c.status || "?")}</span>`;
+    kpis.innerHTML = `
+      ${kpi("Buzones", data.total)}
+      ${kpi("Activos", data.activos)}
+      ${kpi("Suspendidos", data.suspendidos)}
+      ${kpi("Almacenamiento", data.almacenamientoTotal)}
+      ${kpi("Contenedor", cBadge + (c.health && c.health !== "n/a" ? ` <span class="muted">${escapeHtml(c.health)}</span>` : ""))}
+    `;
+    const tbody = $("#panelDomains tbody");
+    tbody.innerHTML = (data.dominios || []).map(d =>
+      `<tr><td>📂 ${escapeHtml(d.dominio)}</td><td>${d.buzones}</td><td>${escapeHtml(d.disco)}</td></tr>`
+    ).join("") || `<tr><td colspan="3" class="muted">Sin dominios.</td></tr>`;
+  }
+  const kpi = (label, val) => `<div class="kpi"><div class="kpi__val">${val}</div><div class="kpi__label">${escapeHtml(label)}</div></div>`;
+
+  // ──────────── Almacenamiento ────────────
+  async function loadStorage() {
+    const wrap = $("#storageWrap");
+    wrap.innerHTML = `<p class="muted">Cargando…</p>`;
+    const { res, data } = await api(`${MAIL_API}/storage`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) { wrap.innerHTML = `<p class="error">${msg(data.error)}</p>`; return; }
+    wrap.innerHTML = (data.dominios || []).map(d => `
+      <div class="card" style="margin-bottom:16px">
+        <div class="row row--space">
+          <h2>📂 ${escapeHtml(d.dominio)}</h2>
+          <div class="row" style="gap:10px">
+            <span class="muted">${d.buzones.length} buzones · Disco: ${escapeHtml(d.disco)}</span>
+            <button class="btn btn--small" data-backup-domain="${escapeHtml(d.dominio)}">⬇️ Respaldo dominio</button>
+          </div>
+        </div>
+        <table class="accounts">
+          <thead><tr><th>Buzón</th><th>Usado</th><th>Cuota</th><th>%</th></tr></thead>
+          <tbody>${d.buzones.map(b =>
+            `<tr><td class="col-email">${escapeHtml(b.email)}</td><td>${escapeHtml(b.usado)}</td><td>${escapeHtml(b.cuota)}</td><td>${b.porcentaje}%</td></tr>`
+          ).join("")}</tbody>
+        </table>
+      </div>
+    `).join("") || `<p class="muted">Sin datos.</p>`;
+  }
+
+  $("#storageWrap").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-backup-domain]");
+    if (btn) downloadBackup(`domain/${encodeURIComponent(btn.dataset.backupDomain)}`);
+  });
+
+  // ──────────── Auditoría ────────────
+  const ACTION_LABELS = {
+    create_mailbox: "Crear buzón", change_password: "Cambiar contraseña", delete_mailbox: "Eliminar buzón",
+    suspend: "Suspender", unsuspend: "Reactivar", set_quota: "Definir cuota", empty_mailbox: "Vaciar buzón",
+    backup_mailbox: "Respaldo buzón", backup_domain: "Respaldo dominio", backup_all: "Respaldo total",
+  };
+  async function loadAudit() {
+    const tbody = $("#auditTbody");
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando…</td></tr>`;
+    const { res, data } = await api(`${MAIL_API}/audit?limit=300`);
+    if (res.status === 401) return showLogin();
+    const entries = data.entries || [];
+    if (!entries.length) { tbody.innerHTML = `<tr><td colspan="5" class="muted">Sin registros.</td></tr>`; return; }
+    tbody.innerHTML = entries.map(en => {
+      const fecha = new Date(en.ts).toLocaleString("es-MX");
+      const accion = ACTION_LABELS[en.action] || en.action;
+      return `<tr><td>${escapeHtml(fecha)}</td><td>${escapeHtml(en.admin || "admin")}</td><td>${escapeHtml(accion)}</td><td class="col-email">${escapeHtml(en.target || "")}</td><td class="muted">${escapeHtml(en.details || "")}</td></tr>`;
+    }).join("");
+  }
+
+  // ──────────── Guía de conexión + instructivos ────────────
+  async function loadGuide() {
+    const grid = $("#guideServer");
+    grid.innerHTML = `<div class="muted">Cargando…</div>`;
+    const { res, data } = await api(`${MAIL_API}/connection-info`);
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      grid.innerHTML = `
+        ${connCard("🌐 Webmail", [["URL", data.webmail]])}
+        ${connCard("📥 IMAP — Entrante", [["Servidor", data.imap.servidor], ["Puerto", data.imap.puerto], ["Cifrado", data.imap.cifrado]])}
+        ${connCard("📤 SMTP — Saliente", [["Servidor", data.smtp.servidor], ["Puerto", data.smtp.puerto], ["Cifrado", data.smtp.cifrado]])}
+        ${connCard("📨 POP3 — Alternativo", [["Servidor", data.pop3.servidor], ["Puerto", data.pop3.puerto], ["Cifrado", data.pop3.cifrado]])}
+      `;
+    }
+    if (!ACCOUNTS.length) await loadAccounts();
+    else renderGuideList($("#guideSearch").value.trim().toLowerCase());
+  }
+  const connCard = (title, rows) => `
+    <div class="conn-card">
+      <h3>${title}</h3>
+      <table>${rows.map(([k, v]) => `<tr><td class="muted">${escapeHtml(k)}</td><td>${escapeHtml(String(v))}</td></tr>`).join("")}</table>
+    </div>`;
+
+  function renderGuideList(filter) {
+    const tbody = $("#guideTbody");
+    if (!tbody) return;
+    const list = filter ? ACCOUNTS.filter(a => a.email.toLowerCase().includes(filter)) : ACCOUNTS;
+    if (!list.length) { tbody.innerHTML = `<tr><td colspan="3" class="muted">Sin buzones.</td></tr>`; return; }
+    let html = "";
+    for (const [dom, accts] of groupByDomain(list)) {
+      html += `<tr class="domain-row"><td colspan="3">📂 ${escapeHtml(dom)} <span class="muted">(${accts.length})</span></td></tr>`;
+      for (const a of accts) {
+        const e = escapeHtml(a.email);
+        const badge = a.suspended ? `<span class="badge badge--off">Suspendida</span>` : `<span class="badge badge--ok">Activa</span>`;
+        html += `<tr><td class="col-email">${e}</td><td>${badge}</td><td class="col-actions"><button class="btn-icon" data-guide-email="${e}"><span class="ico">\u{1F4C4}</span> Ver instructivo</button></td></tr>`;
+      }
+    }
+    tbody.innerHTML = html;
+  }
+  $("#guideSearch").addEventListener("input", (e) => renderGuideList(e.target.value.trim().toLowerCase()));
+  $("#guideTbody").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-guide-email]");
+    if (btn) openInstructivo(btn.dataset.guideEmail);
+  });
+
+  // ──────────── Verificador DNS ────────────
+  async function loadDns() {
+    const tbody = $("#dnsTbody");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Verificando…</td></tr>`;
+    const { res, data } = await api(`${MAIL_API}/dns`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="4" class="error">${msg(data.error)}</td></tr>`; return; }
+    tbody.innerHTML = (data.checks || []).map(c => {
+      const cls = c.estado === "ok" ? "badge--ok" : (c.estado === "warn" ? "badge--warn" : "badge--off");
+      const txt = c.estado === "ok" ? "OK" : (c.estado === "warn" ? "Revisar" : "Falta");
+      return `<tr><td><strong>${escapeHtml(c.tipo)}</strong></td><td class="muted">${escapeHtml(c.esperado)}</td><td style="word-break:break-all">${escapeHtml(c.encontrado)}</td><td><span class="badge ${cls}">${txt}</span></td></tr>`;
+    }).join("");
+  }
+
+  // ──────────── Monitor del contenedor ────────────
+  async function loadMonitor() {
+    const wrap = $("#monitorStatus");
+    wrap.innerHTML = `<div class="muted">Cargando…</div>`;
+    const { res, data } = await api(`${MAIL_API}/container/status`);
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      const sBadge = data.status === "running"
+        ? `<span class="badge badge--ok">running</span>`
+        : `<span class="badge badge--off">${escapeHtml(data.status || "?")}</span>`;
+      wrap.innerHTML = `
+        ${kpi("Estado", sBadge)}
+        ${kpi("Salud", data.health === "saludable" || data.health === "healthy"
+          ? `<span class="badge badge--ok">${escapeHtml(data.health)}</span>`
+          : data.health === "caído" || data.health === "unhealthy"
+            ? `<span class="badge badge--off">${escapeHtml(data.health)}</span>`
+            : `<span class="badge">${escapeHtml(data.health || "n/a")}</span>`)}
+        ${kpi("CPU", escapeHtml(data.cpu || "—"))}
+        ${kpi("Memoria", escapeHtml(data.mem || "—"))}
+      `;
+    } else {
+      wrap.innerHTML = `<div class="error">No se pudo leer el estado del contenedor.</div>`;
+    }
+    loadLogs();
+  }
+
+  async function loadLogs() {
+    const pre = $("#monitorLogs");
+    pre.textContent = "Cargando…";
+    const res = await fetch(`${MAIL_API}/container/logs?lines=200`, { credentials: "same-origin" });
+    if (res.status === 401) return showLogin();
+    pre.textContent = res.ok ? await res.text() : "No se pudieron obtener los logs.";
+    pre.scrollTop = pre.scrollHeight;
+  }
+  $("#logsRefresh").addEventListener("click", loadLogs);
+
+  $("#backupAllBtn").addEventListener("click", () => {
+    if (confirm("El respaldo total descarga TODO el correo (~varios GB) y puede tardar minutos. ¿Continuar?")) {
+      downloadBackup("all");
+    }
+  });
+
+  // ──────────── Control de ciclo de vida del contenedor ────────────
+  const CTL_BTNS = ["#ctlStart", "#ctlRestart", "#ctlStop"];
+  async function containerAction(action, label) {
+    if (!confirm(`¿Seguro que deseas ${label} el servidor de correo?`)) return;
+    const msgEl = $("#ctlMsg");
+    CTL_BTNS.forEach(sel => { $(sel).disabled = true; });
+    msgEl.textContent = "Ejecutando…";
+    const { res, data } = await api(`${MAIL_API}/container/${action}`, { method: "POST" });
+    CTL_BTNS.forEach(sel => { $(sel).disabled = false; });
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      flash(`Acción "${label}" completada. Estado: ${data.status || "?"}`, "ok");
+      msgEl.textContent = "";
+      loadMonitor();
+    } else {
+      flash(`Error al ${label}: ${data.detalle || data.error || "sin detalle"}`, "error");
+      msgEl.textContent = "";
+    }
+  }
+  $("#ctlStart").addEventListener("click",   () => containerAction("start",   "levantar"));
+  $("#ctlRestart").addEventListener("click", () => containerAction("restart", "reiniciar"));
+  $("#ctlStop").addEventListener("click",    () => containerAction("stop",    "detener"));
 
   // ──────────── Modales: helpers ────────────
   function openModal(id) { $(id).classList.remove("hidden"); }
@@ -372,6 +671,114 @@
       $("#unsuspendError").textContent = msg(data.error);
     }
   });
+
+  // ──────────── Administradores (solo rol admin) ────────────
+  async function loadUsers() {
+    const tbody = $("#usersTbody");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Cargando…</td></tr>`;
+    const { res, data } = await api(`${API}/users`);
+    if (res.status === 401) return showLogin();
+    if (res.status === 403) { tbody.innerHTML = `<tr><td colspan="4" class="error">${msg("permiso_denegado")}</td></tr>`; return; }
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="4" class="error">${msg(data.error)}</td></tr>`; return; }
+    const users = data.users || [];
+    tbody.innerHTML = users.map(u => {
+      const isSelf = SESSION.user && u.username.toLowerCase() === SESSION.user.toLowerCase();
+      const roleBadge = u.role === "admin"
+        ? `<span class="badge badge--ok">admin</span>`
+        : `<span class="badge badge--warn">operador</span>`;
+      const fecha = u.createdAt ? new Date(u.createdAt).toLocaleDateString("es-MX") : "—";
+      const delBtn = isSelf
+        ? `<span class="muted" title="Tu propio usuario">—</span>`
+        : `<button class="btn-icon btn-icon--danger" data-uaction="del" data-user="${escapeHtml(u.username)}" title="Eliminar usuario"><span class="ico">\u{1F5D1}</span> Eliminar</button>`;
+      return `
+        <tr>
+          <td class="col-email">${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(tú)</span>' : ""}</td>
+          <td>${roleBadge}</td>
+          <td>${escapeHtml(fecha)}</td>
+          <td class="col-actions">
+            <div class="actions">
+              <button class="btn-icon" data-uaction="pwd" data-user="${escapeHtml(u.username)}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Contraseña</button>
+              ${delBtn}
+            </div>
+          </td>
+        </tr>`;
+    }).join("") || `<tr><td colspan="4" class="muted">Sin usuarios.</td></tr>`;
+  }
+
+  $("#usersTbody").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-uaction]");
+    if (!btn) return;
+    const user = btn.dataset.user;
+    if (btn.dataset.uaction === "pwd") openUserPwdModal(user);
+    else if (btn.dataset.uaction === "del") deleteUser(user);
+  });
+
+  // Crear usuario
+  $("#newUserBtn").addEventListener("click", () => {
+    $("#newUserName").value = "";
+    $("#newUserRole").value = "operador";
+    $("#newUserPwd").value = genPassword();
+    $("#userCreateError").textContent = "";
+    openModal("#userCreateModal");
+    setTimeout(() => $("#newUserName").focus(), 50);
+  });
+  $("#userGenPwd").addEventListener("click", () => { $("#newUserPwd").value = genPassword(); });
+  $("#userCreateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#userCreateError").textContent = "";
+    const username = $("#newUserName").value.trim();
+    const role = $("#newUserRole").value;
+    const password = $("#newUserPwd").value;
+    const { res, data } = await api(`${API}/users`, {
+      method: "POST",
+      body: JSON.stringify({ username, password, role }),
+    });
+    if (res.ok) {
+      closeModal("#userCreateModal");
+      flash(`Usuario ${username} (${role}) creado. Contraseña: ${password}`, "ok");
+      loadUsers();
+    } else {
+      $("#userCreateError").textContent = msg(data.error);
+    }
+  });
+
+  // Cambiar contraseña de usuario
+  function openUserPwdModal(username) {
+    $("#userPwdName").textContent = username;
+    $("#userPwdNew").value = genPassword();
+    $("#userPwdError").textContent = "";
+    $("#userPwdForm").dataset.user = username;
+    openModal("#userPwdModal");
+  }
+  $("#userPwdGen").addEventListener("click", () => { $("#userPwdNew").value = genPassword(); });
+  $("#userPwdForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#userPwdError").textContent = "";
+    const username = $("#userPwdForm").dataset.user;
+    const password = $("#userPwdNew").value;
+    const { res, data } = await api(`${API}/users/${encodeURIComponent(username)}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    });
+    if (res.ok) {
+      closeModal("#userPwdModal");
+      flash(`Contraseña de ${username} actualizada. Nueva: ${password}`, "ok");
+    } else {
+      $("#userPwdError").textContent = msg(data.error);
+    }
+  });
+
+  // Eliminar usuario
+  async function deleteUser(username) {
+    if (!confirm(`¿Eliminar al usuario "${username}"? Esta acción no se puede deshacer.`)) return;
+    const { res, data } = await api(`${API}/users/${encodeURIComponent(username)}`, { method: "DELETE" });
+    if (res.ok) {
+      flash(`Usuario ${username} eliminado.`, "ok");
+      loadUsers();
+    } else {
+      flash(msg(data.error), "err");
+    }
+  }
 
   // ──────────── Init ────────────
   checkAuth();

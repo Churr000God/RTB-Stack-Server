@@ -1,79 +1,130 @@
 services:
 
   web:
-    image: nginx:latest
+    image: nginx:1            # 1.29.0 (Jul-2025); :1 recibe parches dentro del major (B5.4)
     container_name: rtb_web
     volumes:
-      - ../web/html:/usr/share/nginx/html:ro
+      - ../web/RTB_Web/frontend:/usr/share/nginx/html:ro
       - ../web/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro   # webroot ACME challenge (certbot sin downtime)
     ports:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - rtbnet
 
   nextcloud:
-    image: nextcloud
+    image: nextcloud:31       # 31.0.14 (Jun-2026); :31 recibe parches 31.x (B5.4/N7)
     container_name: nextcloud
     volumes:
       - ../nextcloud/data:/var/www/html
     environment:
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD=admin123
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
       - NEXTCLOUD_TRUSTED_DOMAINS=nube.refacrtb.com.mx
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=nextcloud
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=securepass
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis        # activa redis.config.php (memcache.distributed + locking) (N7)
+      - REDIS_PORT=6379
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy   # espera readiness real de Postgres (B5.3)
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/status.php"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - rtbnet
+      - db_net        # acceso a postgres y redis (B5.5/N7)
 
   portainer:
-    image: portainer/portainer-ce
+    image: portainer/portainer-ce:lts  # canal LTS estable; no tiene tag :2 en registry (B5.4)
     container_name: portainer
     ports:
-      - "9443:9443"
+      - "127.0.0.1:9443:9443"   # Solo localhost — acceso por túnel SSH (B3.1/B3.6)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-    networks:
-      - rtbnet
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    # healthcheck: imagen scratch sin shell/wget/curl — restart: unless-stopped cubre fallos
+    # networks: sin red de app — gestiona vía docker.sock; fuera de rtbnet/db_net (B5.5)
 
   postgres:
-    image: postgres:15
+    image: postgres:15        # 15.13 (ya pinado a major) (B5.4)
     container_name: postgres
     volumes:
       - ../db/data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=securepass
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
-      - rtbnet
+      - db_net        # red interna aislada; solo nextcloud necesita postgres (B5.5)
 
   collabora:
-    image: collabora/code
+    image: collabora/code     # Sin tag semver estable upstream; SHA Jul-2025 (B5.4)
     container_name: collabora
     restart: unless-stopped
     cap_add:
       - MKNOD
     environment:
       - domain=nube\\.refacrtb\\.com\\.mx
-      - username=admin
-      - password=adminpass
+      - username=${COLLABORA_USERNAME}
+      - password=${COLLABORA_PASSWORD}
       - extra_params=--o:ssl.enable=false
-    ports:
-      - "9980:9980"
+    expose:
+      - "9980"    # Solo red interna rtbnet — nginx proxea office.refacrtb.com.mx (B3.6)
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9980/hosting/discovery"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - rtbnet
 
   roundcube:
-    image: roundcube/roundcubemail:latest-apache
+    image: roundcube/roundcubemail:latest-apache   # 1.6.x (Jun-2026, reciente) (B5.4)
     container_name: roundcube
     restart: unless-stopped
     environment:
@@ -86,14 +137,43 @@ services:
       - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE=100M
     volumes:
       - roundcube_data:/var/www/html
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - rtbnet
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]   # caché puro, sin persistencia en disco
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - db_net        # red interna aislada; caché y locking de Nextcloud (N7/B5.5)
 
 
 networks:
   rtbnet:
     external: true
+  db_net:
+    internal: true    # sin egress; postgres y redis aislados de internet y de la L2 de nginx (B5.5)
 
 volumes:
   roundcube_data:
-

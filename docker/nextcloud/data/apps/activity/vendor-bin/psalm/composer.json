@@ -1,6 +1,0 @@
-{
-    "require-dev": {
-        "psalm/phar": "^5.26",
-        "nextcloud/ocp": "dev-master"
-    }
-}

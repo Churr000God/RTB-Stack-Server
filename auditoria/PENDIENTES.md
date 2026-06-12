@@ -11,47 +11,69 @@
 - [~] 🔴 **B0.4** Probar restauración — dump PG validado (integridad + contenido); falta prueba de restore real en contenedor desechable
 
 ## Bloque 1 — Secretos (🔴, esf. B)
-- [ ] **B1.1** Mover secretos de `docker-compose.yml` a `.env` gitignored (`${VAR}`)
-- [ ] **B1.2** Rotar: password admin Nextcloud, `POSTGRES_PASSWORD`, Collabora
-- [ ] **B1.3** Sacar compose con secretos del repo (`git rm --cached`) + evaluar purga de historial
-- [ ] **B1.4** Cambiar admin Nextcloud (`admin/<redactado>`): crear nominal, deshabilitar `admin`
+- [x] **B1.1** Mover secretos de `docker-compose.yml` a `.env` gitignored (`${VAR}`) — **HECHO 2026-06-11**. Variables en `.env` (gitignored), compose usa `${VAR}`
+- [x] **B1.2** Rotar: password admin Nextcloud, `POSTGRES_PASSWORD`/`oc_admin`, Collabora — **HECHO 2026-06-11**. Contraseñas hex-32/40 generadas con openssl; ALTER USER oc_admin + occ user:resetpassword + recrear collabora. Respaldo en `/opt/backups/new-secrets-20260611.txt` (chmod 600)
+- [x] **B1.3** Purga historial git — **HECHO 2026-06-11**. `git filter-repo --invert-paths --path docker/.env.mailu` eliminó el archivo de toda la historia. Hash commit inicial cambió `90e2626c` → `254f27aa`. Force-push a `origin` (ambas ramas + tags). Bundle pre-purga en `/opt/backups/rtb-repo-pre-purge-20260611.bundle` (222 MB).
+- [x] **B1.4** Deshabilitar `admin` genérico Nextcloud — **HECHO 2026-06-11**. `occ user:disable admin` (`enabled: false`). Cuentas nominales con rol admin: `Encargado_Sistemas` (Diego) y `Gerente_G` (Sergio). Rollback: `occ user:enable admin`.
 
 ## Bloque 2 — Resiliencia del host (🔴, esf. B)
-- [ ] **B2.1** Crear swapfile 4–8 GB (`fallocate`/`mkswap`/`swapon`/`fstab`, `vm.swappiness=10`)
-- [ ] **B2.2** Límites de memoria por contenedor (`mem_limit`/`deploy.resources`)
+- [x] **B2.1** Crear swapfile 4 GB — **HECHO** (creado en sesión previa, activo: 4 GiB, 2 MiB usado; vm.swappiness=10; `/etc/fstab` actualizado)
+- [x] **B2.2** Límites de memoria por contenedor — **HECHO 2026-06-11**. `deploy.resources.limits.memory`: nginx:256m, nextcloud:4g, postgres:1g, collabora:2g, roundcube:512m, portainer:256m
 
 ## Bloque 3 — Perímetro y accesos (🟠, esf. B)
 > Detalle ampliado en [AUDITORIA-ACCESOS.md](AUDITORIA-ACCESOS.md) (anexo de accesos, 2026-06-09).
-- [ ] **B3.1** Cerrar Portainer `:9443` en UFW (acceso por túnel SSH / VPN) — *A6*
-- [ ] **B3.2** SSH key-only: el `no` ya está en el config principal pero lo **anula `50-cloud-init.conf` (`yes`)**; corregir ese drop-in o añadir uno de orden menor, `sshd -t` + reload, verificar sesión nueva — *A1*
+- [x] **B3.1** Cerrar Portainer `:9443` en UFW — **HECHO 2026-06-11**. Port binding cambiado a `127.0.0.1:9443:9443`; `ufw delete allow 9443` ejecutado (ambas versiones IPv4/IPv6)
+- [~] **B3.2** SSH key-only: **PARCIAL 2026-06-11**. El operador decidió mantener `PasswordAuthentication yes` (acceso multi-dispositivo con contraseña). Se creó drop-in `01-rtb-hardening.conf` con `AllowUsers` (B3.5). Clave Ed25519 generada y agregada a `authorized_keys` (complementa la RSA preexistente `dhgui@XREX_LAP`). Riesgo aceptado: password habilitado.
 - [x] **B3.3** `diegoadmin1`/`diegoadmin2` **deshabilitadas 2026-06-09** (`usermod -L -e 1`: bloqueadas + expiradas a 1970-01-02; reversible). Siguen en grupo `sudo` pero ya no pueden autenticarse — *A3/A7*
-- [ ] **B3.4** Quitar/acotar `sudo NOPASSWD: ALL` de `rtbadmin` (hoy = punto único de fallo: sudo+docker+NOPASSWD) — *A2*
-- [ ] **B3.5** Añadir `AllowUsers rtbadmin` (o `AllowGroups sudo`) a sshd — *A4*
-- [ ] **B3.6** Bindear puertos Docker de gestión a `127.0.0.1` (9980 Collabora, 8080 OnlyOffice) — hoy expuestos al mundo eludiendo UFW — *A5*
+- [ ] **B3.4** Quitar/acotar `sudo NOPASSWD: ALL` de `rtbadmin` — **riesgo aceptado por el operador (2026-06-11)**. No acotar por ahora.
+- [x] **B3.5** `AllowUsers rtbadmin root` en sshd — **HECHO 2026-06-11**. Drop-in `/etc/ssh/sshd_config.d/01-rtb-hardening.conf` con `AllowUsers rtbadmin root`. `root` incluido para el backup-pull del Pi (forced-commands-only). Reload exitoso, sesiones activas no afectadas.
+- [x] **B3.6** Bindear puertos Docker de gestión a `127.0.0.1` — **HECHO 2026-06-11**. Collabora: `ports` → `expose` (solo red interna, nginx proxea `office.`). Portainer: `127.0.0.1:9443`. Verificado desde exterior: `:9980`/`:9443` → rechazados
 - [x] **B3.7** `passwd -l root` **hecho 2026-06-09** (contraseña de root bloqueada; el backup por llave+comando forzado sigue intacto) — *A8*
 
 ## Bloque 4 — Limpieza zombies/huérfanos (🟠–🟡, esf. B)
-- [ ] **B4.1** Decidir destino de onlyoffice (`app.`) y api_rtb (`api.`): retirar o cablear
-- [ ] **B4.2** Eliminar servicio `web` duplicado de `docker/docker-compose.yml`
-- [ ] **B4.3** `git rm -r --cached docker/nextcloud/data` + `.gitignore` (repo 228 MB → bajar)
+- [x] **B4.1** Decidir destino de onlyoffice (`app.`) y api_rtb (`api.`): retirar o cablear — **HECHO 2026-06-11**. `docker rm onlyoffice` (zombie Exited OOM); `api/` eliminado (FastAPI huérfano, credenciales placeholder); `web/RTB_Web/deploy/nginx/default.conf` y `docker/mailu/overrides/nginx/extra.conf` borrados; certs `api.`/`app.` eliminados (`certbot delete`). Collabora cubre documentos (richdocuments 8.8.0). DNS `api.`/`app.` pendiente de baja en IONOS (ver [DNS-B6.1.md](DNS-B6.1.md))
+- [x] **B4.2** Eliminar compose duplicado — **HECHO 2026-06-11**. `web/docker-compose.yml` (mismo `container_name: rtb_web`, peligroso) retirado del repo. Configs nginx muertas `docker/nginx/conf.d/*.conf` y `docker/nginx/extra.conf` también eliminadas. `rtb_web` migrado del proyecto `web/` al proyecto `docker/` (compose canónico)
+- [x] **B4.3** `git rm -r --cached docker/nextcloud/data` — **HECHO 2026-06-11**. 30 063 archivos desindexados (~228 MB del repo); patrón añadido a `.gitignore`
 
 ## Bloque 5 — Madurez infra (🟠–🟡, esf. M)
-- [ ] **B5.1** `apt upgrade` (52 updates, 19 seguridad) en ventana
-- [ ] **B5.2** Reinicio del host (kernel 37 versiones atrás, 322 d uptime) — con backups listos
-- [ ] **B5.3** Healthchecks por contenedor (+ autoheal opcional)
-- [ ] **B5.4** Fijar tags de imágenes a versión concreta
-- [ ] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx)
+- [x] **B5.1** `apt upgrade` — **HECHO 2026-06-11**. 32 paquetes actualizados (incluye Docker 28.3→29.5.3, containerd, nftables, apparmor, cloud-init, snapd). 2 held-back: `libnetplan0`/`netplan.io`. Sin kernel nuevo, sin reboot-required. Servicios del sistema reiniciados (auditd, networkd, resolved…); contenedores Docker se reiniciaron automáticamente con el daemon — todos healthy.
+- [x] **B5.2** Reinicio del host — **NO APLICA (2026-06-11)**. El host ya arrancó el 2026-06-09 23:42 con el kernel más reciente instalado (`5.15.0-181-generic`). Sin `reboot-required` y sin kernel en los updates de B5.1. Cerrado.
+- [x] **B5.3** Healthchecks por contenedor — **HECHO 2026-06-11**. postgres:`pg_isready`, nextcloud:`curl /status.php`, nginx:`curl localhost/`, collabora:`curl /hosting/discovery`, roundcube:`curl localhost/`, portainer:`wget /api/status`. `depends_on: condition: service_healthy` en nextcloud→postgres
+- [x] **B5.4** Fijar tags de imágenes — **HECHO 2026-06-11**. nginx:1 (→tiró 1.31.1 con parches), nextcloud:31, postgres:15, portainer/portainer-ce:lts. Collabora/roundcube sin tag semver estable upstream documentados
+- [x] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx) — **HECHO 2026-06-11**. Nueva red `db_net` (`internal: true`); postgres y redis solo en `db_net`; nextcloud en `rtbnet` + `db_net`; portainer fuera de toda red de app (gestiona vía `docker.sock`). Verificado: `docker network inspect docker_db_net` → nextcloud+postgres+redis; `docker network inspect rtbnet` → sin postgres ni portainer
 
 ## Bloque 6 — Correo (🟡, esf. B)
-- [ ] **B6.1** DMARC `rua` a buzón propio; confirmar CNAMEs DKIM de MailerSend
+- [~] **B6.1** DMARC `rua` a buzón propio; confirmar CNAMEs DKIM de MailerSend — **DOCUMENTADO 2026-06-11, esperando DNS**. Instrucciones exactas en [DNS-B6.1.md](DNS-B6.1.md): cambiar `rua` a `admin@refacrtb.com.mx`; obtener CNAMEs de MailerSend y publicarlos; bajar DNS `api.`/`app.`. El operador aplica los cambios en el panel IONOS
 
-## Otros (🟡)
-- [ ] **B6.2** `nextcloud.log` ≈ 554 MB sin rotar → configurar `log_rotate_size` / truncar (detectado 2026-06-09)
+## Bloque N — Hallazgos nuevos 2026-06-11 (auditoría de re-revisión de nube)
+- [x] **N1** Background jobs en modo AJAX — **RESUELTO 2026-06-11**. `occ background:cron`; cron host `*/5 * * * * docker exec -u www-data nextcloud php cron.php`
+- [x] **N2** nginx: faltan headers de seguridad + TLS permite TLSv1.0/1.1 — **RESUELTO 2026-06-11**. `ssl_protocols TLSv1.2 TLSv1.3`; `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `X-Permitted-Cross-Domain-Policies` en los 4 server HTTPS; `limit_req_zone` en `/index.php/login` y `/remote.php`
+- [x] **N3** `SECRET_KEY` de Mailu versionado en git en claro — **RESUELTO 2026-06-11**. `docker/.env.mailu` y `docker/mailu/` retirados del repo; tratados como comprometidos (Mailu sin uso). Queda en historial git → ver B1.3
+- [x] **N4** `renew-ssl-certs.sh` hace `docker stop rtb_web` (downtime en cada renovación) — **RESUELTO 2026-06-11**. Migrado a webroot: `/var/www/certbot` montado en nginx; certbot migrado standalone→webroot (6 certs); deploy-hook `reload-nginx.sh`; cron semanal eliminado; `certbot.timer` toma control. Dry-run: todos success
+- [x] **N5** `loglevel=0` (debug) en producción — **RESUELTO 2026-06-11**. `occ config:system:set loglevel --value=2`
+- [x] **N6** `default_phone_region` y `maintenance_window_start` sin definir — **RESUELTO 2026-06-11**. `occ config:system:set default_phone_region MX` y `maintenance_window_start 1`
+- [x] **N7** NC 31.0.14 + Redis — **HECHO 2026-06-11**. NC ya en 31.0.14.1 (pin `:31` tiró el parche); `redis:alpine` añadido en `db_net`; `REDIS_HOST=redis` cableado a NC → `memcache.distributed=\OC\Memcache\Redis` + `memcache.locking=\OC\Memcache\Redis`. Apps ya al día (`occ app:update --all`: all up-to-date)
+- [x] **N8** Basura en `docker/` y `mailserver/fail2ban/jail.local.bak` — **RESUELTO 2026-06-11**. Archivos `=`, `[internal]`, `reading`, `transferring` y `jail.local.bak` eliminados
+- [x] **B6.2** `nextcloud.log` sin rotar (era **41 GB**, no 554 MB) — **RESUELTO 2026-06-11**. `log_rotate_size=100MB` vía occ; log truncado (liberó ~41 GB de disco, uso /: 48%→46%)
+
+## Pendientes que quedan tras sesión 2026-06-11 (actualizado)
+| Clave | Qué falta | Prioridad |
+|-------|-----------|-----------|
+| B0.1 | Snapshot VPS en panel IONOS (manual) | 🔴 |
+| B0.3 | Backup externo NC→Raspberry Pi (hardware SSD) | 🔴 |
+| B0.4 | Prueba restore real en contenedor desechable | 🔴 |
+| B3.2 | SSH: password habilitado (riesgo aceptado; Ed25519 disponible como alternativa) | 🟠 |
+| B3.4 | Acotar sudo NOPASSWD:ALL de rtbadmin (riesgo aceptado) | 🟠 |
+| B6.1 | DMARC rua + CNAMEs DKIM MailerSend (doc lista, operador aplica DNS) | 🟡 |
 
 ---
 ### Bitácora
+- **2026-06-11** — Sesión de cierre de 4 pendientes 🟡. Cerrados: B4.1 (purga OnlyOffice+api_rtb: docker rm, borrar api/, configs nginx muertas, certs certbot delete), B5.5 (red db_net internal + portainer fuera de rtbnet), N7 (Redis:alpine en db_net, memcache.distributed+locking=Redis, apps up-to-date). B6.1 documentado en [DNS-B6.1.md](DNS-B6.1.md) — operador aplica cambios en IONOS. 3 commits en rama `feat/dashboard-correo-multiadmin`.
 - **2026-06-09** — Auditoría de solo lectura completada. Entregables en `auditoria/`.
 - **2026-06-09** — Anexo de **accesos** (usuarios/permisos/SSH/sudo) completado en `AUDITORIA-ACCESOS.md`; hallazgos A1–A9 integrados al Bloque 3.
 - **2026-06-09** — Aplicados **A3** (diegoadmin1/2 deshabilitadas: `usermod -L -e 1`) y **A8** (`passwd -l root`). Verificado: las 3 cuentas en estado `L`. Pendientes A1/A2/A5/A6 (requieren ventana de servicio).
 - **2026-06-09** — B0.2 HECHO: backup local VPS (Postgres+configs+correo) automatizado con systemd timer diario 03:30 UTC; probado y validado.
 - **2026-06-09** — B0.3 iniciado y PAUSADO: VPS+Pi configurados, test OK; 1ª sync falló por hardware (SSD USB se desconecta por potencia). Sesión abierta en `SESION-ABIERTA.md`.
+- **2026-06-11** — Sesión de endurecimiento de la nube completada. Cerrados: B1.1, B1.2, B2.1 (ya estaba), B2.2, B3.1, B3.6, B4.2, B4.3, B5.3, B5.4, B6.2, N1–N6, N8. Parcial: N7. 10 commits en rama `feat/dashboard-correo-multiadmin`. Detalle en [SESION-NUBE-2026-06-11.md](SESION-NUBE-2026-06-11.md).
+- **2026-06-11** — **Incidente 2FA admin Nextcloud**: tras rotación de contraseña el usuario no podía entrar (TOTP + notificación NC fallaban). Ambos factores deshabilitados vía `occ twofactorauth:disable`. **Pendiente: reconfigurar TOTP** en Configuración → Seguridad.
+- **2026-06-11** — Sesión de cierre de pendientes. Cerrados: B1.3 (purga git + force-push, bundle en `/opt/backups/`), B1.4 (`occ user:disable admin`), B3.5 (`AllowUsers rtbadmin root` en drop-in `01-rtb-hardening.conf`), B5.1 (apt upgrade 32 paquetes, Docker 29.5.3), B5.2 (no-aplica: kernel ya actualizado). Clave Ed25519 generada para rtbadmin. B3.2/B3.4: riesgo aceptado por el operador.

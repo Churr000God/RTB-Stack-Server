@@ -1,8 +1,10 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const router = express.Router();
+const adminStore = require("../utils/adminStore");
+const { appendAudit } = require("../utils/auditLog");
 
-const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH;
+// Siembra el admin raíz (desde ADMIN_PASSWORD_HASH) si aún no existe ninguno.
+adminStore.ensureBootstrap();
 
 const loginAttempts = new Map();
 const MAX_ATTEMPTS = 5;
@@ -32,23 +34,29 @@ router.post("/login", async (req, res) => {
   if (tooManyAttempts(ip)) {
     return res.status(429).json({ error: "demasiados_intentos" });
   }
-  const { password } = req.body || {};
+  const { username, password } = req.body || {};
+  if (!username || typeof username !== "string") {
+    recordAttempt(ip);
+    return res.status(400).json({ error: "usuario_requerido" });
+  }
   if (!password || typeof password !== "string") {
     recordAttempt(ip);
     return res.status(400).json({ error: "password_requerido" });
   }
-  if (!ADMIN_HASH) {
-    return res.status(500).json({ error: "admin_no_configurado" });
-  }
-  const ok = await bcrypt.compare(password, ADMIN_HASH);
-  if (!ok) {
+
+  const admin = adminStore.verify(username, password);
+  if (!admin) {
     recordAttempt(ip);
     return res.status(401).json({ error: "credenciales_invalidas" });
   }
+
   loginAttempts.delete(ip);
   req.session.admin = true;
+  req.session.user = admin.username;
+  req.session.role = admin.role;
   req.session.loginAt = Date.now();
-  res.json({ ok: true });
+  appendAudit({ admin: admin.username, action: "login", target: admin.username });
+  res.json({ ok: true, user: admin.username, role: admin.role });
 });
 
 router.post("/logout", (req, res) => {
@@ -60,7 +68,12 @@ router.post("/logout", (req, res) => {
 
 router.get("/me", (req, res) => {
   if (req.session && req.session.admin === true) {
-    return res.json({ authenticated: true, loginAt: req.session.loginAt });
+    return res.json({
+      authenticated: true,
+      user: req.session.user,
+      role: req.session.role,
+      loginAt: req.session.loginAt,
+    });
   }
   res.json({ authenticated: false });
 });
