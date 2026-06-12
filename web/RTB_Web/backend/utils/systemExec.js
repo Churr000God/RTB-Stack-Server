@@ -6,6 +6,7 @@
 const { execFile } = require("child_process");
 const os  = require("os");
 const fs  = require("fs");
+const net = require("net");
 
 // ── Allowlists de seguridad ──────────────────────────────────────────────────
 // Solo se aceptan estos nombres en endpoints de control; cualquier otro → 400.
@@ -32,6 +33,18 @@ function isAllowedPm2(name) {
 }
 function isAllowedAction(action) {
   return ALLOWED_CTL_ACTIONS.has(action);
+}
+
+// Nombre de jail de fail2ban: solo letras/números/._- (sin espacios ni shell-chars).
+// Además de este formato, las rutas verifican que la jail exista en el listado vivo.
+const JAIL_RE = /^[a-z0-9._-]{1,64}$/i;
+function isValidJailName(name) {
+  return typeof name === "string" && JAIL_RE.test(name);
+}
+
+// IP literal válida (IPv4 o IPv6) — net.isIP devuelve 0 si no lo es.
+function isValidIp(ip) {
+  return typeof ip === "string" && net.isIP(ip) !== 0;
 }
 
 // ── Wrapper execFile genérico (sin shell) ────────────────────────────────────
@@ -249,6 +262,8 @@ module.exports = {
   isAllowedContainer,
   isAllowedPm2,
   isAllowedAction,
+  isValidJailName,
+  isValidIp,
   runCmd,
   parseDf,
   parseMeminfo,

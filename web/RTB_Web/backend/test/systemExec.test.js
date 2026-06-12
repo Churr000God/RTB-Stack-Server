@@ -11,6 +11,8 @@ const {
   parseDockerPs,
   parseFail2banJailList,
   parseFail2banJail,
+  isValidJailName,
+  isValidIp,
 } = require("../utils/systemExec");
 
 let passed = 0;
@@ -248,6 +250,53 @@ test("jail name se preserva aunque la salida esté vacía", () => {
   assert.strictEqual(r.jail,   "dovecot");
   assert.strictEqual(r.failed, 0);
   assert.deepStrictEqual(r.ips, []);
+});
+
+// ── isValidJailName ──────────────────────────────────────────────────────────
+console.log("\nisValidJailName");
+
+test("nombres reales de jail pasan", () => {
+  assert.strictEqual(isValidJailName("dovecot"), true);
+  assert.strictEqual(isValidJailName("postfix-sasl"), true);
+  assert.strictEqual(isValidJailName("custom_jail.v2"), true);
+});
+
+test("vacío / no string rechazado", () => {
+  assert.strictEqual(isValidJailName(""), false);
+  assert.strictEqual(isValidJailName(null), false);
+  assert.strictEqual(isValidJailName(42), false);
+});
+
+test("caracteres de inyección rechazados", () => {
+  assert.strictEqual(isValidJailName("jail; rm -rf /"), false);
+  assert.strictEqual(isValidJailName("jail name"), false);
+  assert.strictEqual(isValidJailName("jail$(x)"), false);
+  assert.strictEqual(isValidJailName("../etc"), false);
+});
+
+test("demasiado largo rechazado", () => {
+  assert.strictEqual(isValidJailName("a".repeat(65)), false);
+});
+
+// ── isValidIp ────────────────────────────────────────────────────────────────
+console.log("\nisValidIp");
+
+test("IPv4 válidas pasan", () => {
+  assert.strictEqual(isValidIp("192.168.1.10"), true);
+  assert.strictEqual(isValidIp("217.154.101.174"), true);
+});
+
+test("IPv6 válida pasa", () => {
+  assert.strictEqual(isValidIp("2001:db8::1"), true);
+});
+
+test("no-IPs rechazadas", () => {
+  assert.strictEqual(isValidIp(""), false);
+  assert.strictEqual(isValidIp(null), false);
+  assert.strictEqual(isValidIp("999.1.1.1"), false);
+  assert.strictEqual(isValidIp("1.2.3"), false);
+  assert.strictEqual(isValidIp("8.8.8.8; reboot"), false);
+  assert.strictEqual(isValidIp("8.8.8.8/24"), false);
 });
 
 // ── Resumen ──────────────────────────────────────────────────────────────────

@@ -330,6 +330,38 @@ input:focus { outline: 2px solid var(--primary); outline-offset: -1px; border-co
 /* Bloqueo de scroll del fondo mientras hay un modal abierto */
 body.modal-open { overflow: hidden; }
 
+/* ──────────── Fail2ban: chips de IP + formulario de baneo ──────────── */
+.ip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 4px 2px 8px;
+  margin: 2px 4px 2px 0;
+}
+.ip-chip code { font-size: 12px; }
+.ip-chip__x {
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.ip-chip__x:hover { background: var(--error-bg); }
+.ip-chip__x:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+input[type="text"].input--inline {
+  width: auto;
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
 /* Spinner de carga (junto a "Cargando…") */
 .spinner {
   display: inline-block;
@@ -464,8 +496,11 @@ body.modal-open { overflow: hidden; }
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: var(--shadow);
+  /* min-width:0 anula el min-width:auto de los items de grid — sin esto,
+     valores largos sin espacios (ej. "rtb_backend") desbordan la tarjeta */
+  min-width: 0;
 }
-.kpi__val   { font-size: 24px; font-weight: 700; color: var(--brand-navy); }
+.kpi__val   { font-size: 24px; font-weight: 700; color: var(--brand-navy); overflow-wrap: anywhere; }
 .kpi__label { color: var(--muted); font-size: 13px; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* ──────────── Buscador ──────────── */

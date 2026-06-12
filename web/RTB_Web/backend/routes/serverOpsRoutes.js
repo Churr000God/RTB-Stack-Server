@@ -18,6 +18,8 @@ const {
   isAllowedContainer,
   isAllowedPm2,
   isAllowedAction,
+  isValidJailName,
+  isValidIp,
   runCmd,
   parseDockerPs,
   parsePm2,
@@ -211,6 +213,42 @@ router.get("/fail2ban", requireAuth, async (req, res) => {
   } catch (err) {
     // fail2ban no responde o mailserver está caído
     res.json({ disponible: false });
+  }
+});
+
+// ──────────── Administración de fail2ban — solo admin ──────────────────────
+// POST /fail2ban/:jail/:action   (action: ban | unban)   body: { ip }
+// Doble validación: formato del nombre de jail + existencia en el listado vivo.
+router.post("/fail2ban/:jail/:action", requireAdmin, async (req, res) => {
+  const { jail, action } = req.params;
+  const ip = (req.body || {}).ip;
+
+  if (!isValidJailName(jail))             return res.status(400).json({ error: "jail_invalida" });
+  if (action !== "ban" && action !== "unban") return res.status(400).json({ error: "accion_invalida" });
+  if (!isValidIp(ip))                     return res.status(400).json({ error: "ip_invalida" });
+
+  try {
+    const { stdout } = await runDocker(
+      ["exec", "mailserver", "fail2ban-client", "status"],
+      { timeout: 8000 }
+    );
+    if (!parseFail2banJailList(stdout).includes(jail)) {
+      return res.status(400).json({ error: "jail_invalida" });
+    }
+
+    const cmd = action === "ban" ? "banip" : "unbanip";
+    await runDocker(
+      ["exec", "mailserver", "fail2ban-client", "set", jail, cmd, ip],
+      { timeout: 8000 }
+    );
+    appendAudit({ admin: req.session.user, action: `f2b_${action}`, target: ip, details: `jail=${jail}` });
+    res.json({ ok: true, jail, ip, accion: action });
+  } catch (err) {
+    // Desbanear una IP que ya no está baneada no es un error operativo.
+    if (action === "unban" && /not banned/i.test(err.stderr || "")) {
+      return res.json({ ok: true, jail, ip, accion: action, nota: "no_estaba_baneada" });
+    }
+    sendError(res, 500, `fallo_${action}`, err);
   }
 });
 

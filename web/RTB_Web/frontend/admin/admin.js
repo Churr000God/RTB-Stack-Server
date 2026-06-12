@@ -51,6 +51,10 @@
     proceso_no_permitido: "Proceso no permitido.",
     accion_invalida: "Acción no válida.",
     fallo_start: "Error al iniciar el contenedor.",
+    jail_invalida: "Jail de fail2ban no válida o inexistente.",
+    ip_invalida: "Dirección IP inválida.",
+    fallo_ban: "No se pudo banear la IP.",
+    fallo_unban: "No se pudo desbanear la IP.",
     fallo_stop: "Error al detener el contenedor.",
     fallo_restart: "Error al reiniciar.",
   };
@@ -350,6 +354,7 @@
     container_start: "Levantar servidor correo", container_stop: "Detener servidor correo", container_restart: "Reiniciar servidor correo",
     docker_start: "Iniciar contenedor", docker_stop: "Detener contenedor", docker_restart: "Reiniciar contenedor",
     pm2_restart: "Reiniciar backend (PM2)",
+    f2b_ban: "Banear IP (fail2ban)", f2b_unban: "Desbanear IP (fail2ban)",
   };
   async function loadAudit() {
     const tbody = $("#auditTbody");
@@ -721,6 +726,27 @@
       div.innerHTML = `<p class="muted">No hay jails configurados.</p>`;
       return;
     }
+    const isAdmin = SESSION.role === "admin";
+    const ipCell = (j) => {
+      if (!j.ips.length) return "—";
+      return j.ips.map(ip => {
+        const e = escapeHtml(ip);
+        const unbanBtn = isAdmin
+          ? `<button class="ip-chip__x" data-f2b-unban data-jail="${escapeHtml(j.jail)}" data-ip="${e}" title="Desbanear ${e}" aria-label="Desbanear ${e}">✕</button>`
+          : "";
+        return `<span class="ip-chip"><code>${e}</code>${unbanBtn}</span>`;
+      }).join(" ");
+    };
+    const banForm = isAdmin ? `
+      <form id="f2bBanForm" class="row row--wrap mt-12" autocomplete="off">
+        <select id="f2bJail" class="select select--inline" aria-label="Jail">
+          ${jails.map(j => `<option value="${escapeHtml(j.jail)}">${escapeHtml(j.jail)}</option>`).join("")}
+        </select>
+        <input id="f2bIp" type="text" class="input--inline" placeholder="IP a banear (ej: 203.0.113.5)"
+               pattern="[0-9a-fA-F.:]+" required aria-label="IP a banear">
+        <button class="btn btn--danger btn--small" type="submit">🚫 Banear IP</button>
+      </form>
+      <p class="muted mt-8">El baneo aplica de inmediato en la jail elegida. Las IPs baneadas muestran ✕ para desbanear.</p>` : "";
     div.innerHTML = `
       <table class="accounts">
         <thead>
@@ -741,17 +767,46 @@
                 ? `<span class="badge badge--off">${j.banned}</span>`
                 : String(j.banned)}</td>
               <td class="muted" data-label="Total">${j.totalBanned}</td>
-              <td class="break-all ip-list" data-label="IPs baneadas">
-                ${j.ips.length
-                  ? j.ips.map(ip => `<code>${escapeHtml(ip)}</code>`).join(" ")
-                  : "—"}
-              </td>
+              <td class="break-all ip-list" data-label="IPs baneadas">${ipCell(j)}</td>
             </tr>
           `).join("")}
         </tbody>
       </table>
+      ${banForm}
     `;
   }
+
+  // Banear / desbanear IPs (solo admin) — delegación sobre el contenedor,
+  // porque el contenido se re-renderiza en cada refresco.
+  async function f2bAction(jail, action, ip) {
+    const verbo = action === "ban" ? "banear" : "desbanear";
+    if (!confirm(`¿Seguro que deseas ${verbo} la IP ${ip} en la jail "${jail}"?`)) return;
+    const { res, data } = await api(
+      `${SYS_API}/fail2ban/${encodeURIComponent(jail)}/${action}`,
+      { method: "POST", body: JSON.stringify({ ip }) }
+    );
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      flash(`IP ${ip} ${action === "ban" ? "baneada en" : "desbaneada de"} "${jail}".`, "ok");
+      loadFail2ban();
+    } else {
+      flash(`Error al ${verbo} ${ip}: ${msg(data.error)}`, "err");
+    }
+  }
+
+  $("#fail2banStatus").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-f2b-unban]");
+    if (btn) f2bAction(btn.dataset.jail, "unban", btn.dataset.ip);
+  });
+
+  $("#fail2banStatus").addEventListener("submit", (e) => {
+    if (e.target.id !== "f2bBanForm") return;
+    e.preventDefault();
+    const jail = $("#f2bJail").value;
+    const ip = $("#f2bIp").value.trim();
+    if (!ip) return;
+    f2bAction(jail, "ban", ip);
+  });
 
   // Botón de refrescar fail2ban
   $("#fail2banRefresh").addEventListener("click", loadFail2ban);
