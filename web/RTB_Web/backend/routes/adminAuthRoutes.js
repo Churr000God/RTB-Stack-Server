@@ -51,12 +51,19 @@ router.post("/login", async (req, res) => {
   }
 
   loginAttempts.delete(ip);
-  req.session.admin = true;
-  req.session.user = admin.username;
-  req.session.role = admin.role;
-  req.session.loginAt = Date.now();
-  appendAudit({ admin: admin.username, action: "login", target: admin.username });
-  res.json({ ok: true, user: admin.username, role: admin.role });
+  // Regenerar el id de sesión en cada login (anti session-fixation).
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error(`[api] fallo_sesion — ${err.message}`);
+      return res.status(500).json({ error: "fallo_sesion" });
+    }
+    req.session.admin = true;
+    req.session.user = admin.username;
+    req.session.role = admin.role;
+    req.session.loginAt = Date.now();
+    appendAudit({ admin: admin.username, action: "login", target: admin.username });
+    res.json({ ok: true, user: admin.username, role: admin.role });
+  });
 });
 
 router.post("/logout", (req, res) => {

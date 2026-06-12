@@ -9,13 +9,24 @@ const path = require("path");
 const CONTAINER = process.env.MAILSERVER_CONTAINER || "mailserver";
 const DOMAIN = process.env.MAIL_DOMAIN || "refacrtb.com.mx";
 
-const EMAIL_RE = /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
-const DOMAIN_RE = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
+// Parte local: segmentos [a-z0-9_-] separados por puntos — sin punto inicial,
+// final ni dobles (".." sería traversal al construir rutas tipo /var/mail/dom/local).
+// Dominio: etiquetas que no inician/terminan en guion, separadas por puntos, TLD ≥ 2.
+const EMAIL_RE = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
+const DOMAIN_RE = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 const QUOTA_RE = /^(\d+)([KMG]?)$/i;
 const PWD_MIN = 8;
 const PWD_MAX = 128;
 
 const DATA_DIR = path.join(__dirname, "..", "data");
+
+// Responde un error al cliente SIN detalles internos (stderr de Docker, rutas).
+// El detalle técnico va solo al log del backend (visible con pm2 logs).
+function sendError(res, status, code, err) {
+  const detalle = err ? (err.stderr || err.message || String(err)) : "";
+  console.error(`[api] ${code}${detalle ? ` — ${String(detalle).trim().slice(0, 500)}` : ""}`);
+  return res.status(status).json({ error: code });
+}
 
 function runDocker(args, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -114,6 +125,7 @@ module.exports = {
   PWD_MIN,
   PWD_MAX,
   runDocker,
+  sendError,
   generateRandomPassword,
   validateEmail,
   validateDomain,

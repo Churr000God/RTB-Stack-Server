@@ -11,7 +11,7 @@ const { spawn } = require("child_process");
 
 const requireAuth  = require("../middleware/requireAuth");
 const requireAdmin = require("../middleware/requireAdmin");
-const { runDocker  } = require("../utils/mailExec");
+const { runDocker, sendError } = require("../utils/mailExec");
 const { appendAudit } = require("../utils/auditLog");
 const {
   CONTAINERS,
@@ -34,7 +34,7 @@ router.get("/host", requireAuth, async (req, res) => {
     const stats = await readHostStats();
     res.json(stats);
   } catch (err) {
-    res.status(500).json({ error: "fallo_host", detalle: err.message });
+    sendError(res, 500, "fallo_host", err);
   }
 });
 
@@ -88,7 +88,7 @@ router.get("/containers", requireAuth, async (req, res) => {
 
     res.json({ containers });
   } catch (err) {
-    res.status(500).json({ error: "fallo_containers", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_containers", err);
   }
 });
 
@@ -106,7 +106,7 @@ router.get("/containers/:name/logs", requireAuth, async (req, res) => {
     // mailserver escribe la mayoría de sus logs a stderr; concatenamos ambos
     res.type("text/plain").send((stderr || "") + (stdout || "") || "(sin logs)");
   } catch (err) {
-    res.status(500).json({ error: "fallo_logs", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_logs", err);
   }
 });
 
@@ -142,7 +142,8 @@ router.get("/containers/:name/logs/stream", requireAuth, (req, res) => {
   child.stderr.on("data", onData); // mailserver → logs en stderr
 
   child.on("error", (err) => {
-    send({ tipo: "error", mensaje: err.message });
+    console.error(`[api] fallo_stream_logs — ${err.message}`);
+    send({ tipo: "error", mensaje: "No se pudo abrir el stream de logs." });
     if (!res.writableEnded) res.end();
   });
   child.on("close", () => {
@@ -180,7 +181,7 @@ router.get("/pm2", requireAuth, async (req, res) => {
     });
     res.json({ procs });
   } catch (err) {
-    res.status(500).json({ error: "fallo_pm2", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_pm2", err);
   }
 });
 
@@ -209,7 +210,7 @@ router.get("/fail2ban", requireAuth, async (req, res) => {
     res.json({ disponible: true, jails });
   } catch (err) {
     // fail2ban no responde o mailserver está caído
-    res.json({ disponible: false, detalle: err.stderr || err.message });
+    res.json({ disponible: false });
   }
 });
 
@@ -242,7 +243,7 @@ router.post("/containers/:name/:action", requireAdmin, async (req, res) => {
 
     res.json({ ok: true, accion: action, contenedor: name, state });
   } catch (err) {
-    res.status(500).json({ error: `fallo_${action}`, detalle: err.stderr || err.message });
+    sendError(res, 500, `fallo_${action}`, err);
   }
 });
 

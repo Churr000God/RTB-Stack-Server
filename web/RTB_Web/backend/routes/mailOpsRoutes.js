@@ -5,10 +5,12 @@ const express = require("express");
 const { spawn } = require("child_process");
 const dns = require("dns").promises;
 const requireAuth = require("../middleware/requireAuth");
+const requireAdmin = require("../middleware/requireAdmin");
 const {
   CONTAINER,
   DOMAIN,
   runDocker,
+  sendError,
   validateEmail,
   validateDomain,
   parseAccounts,
@@ -96,7 +98,7 @@ router.get("/dashboard", requireAuth, async (req, res) => {
       contenedor,
     });
   } catch (err) {
-    res.status(500).json({ error: "fallo_dashboard", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_dashboard", err);
   }
 });
 
@@ -106,7 +108,7 @@ router.get("/storage", requireAuth, async (req, res) => {
     const accounts = await listAccounts();
     res.json({ dominios: groupByDomain(accounts) });
   } catch (err) {
-    res.status(500).json({ error: "fallo_storage", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_storage", err);
   }
 });
 
@@ -216,13 +218,13 @@ router.get("/container/logs", requireAuth, async (req, res) => {
     // docker-mailserver escribe gran parte de sus logs a stderr.
     res.type("text/plain").send((stderr || "") + (stdout || "") || "(sin logs)");
   } catch (err) {
-    res.status(500).json({ error: "fallo_logs", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_logs", err);
   }
 });
 
 // ──────────── Control de ciclo de vida del contenedor ────────────
 // Estas rutas ejecutan docker start/stop/restart sin shell (execFile).
-// Requieren sesión autenticada. Acciones destructivas → confirm() en el front.
+// Solo rol admin: un operador no debe poder detener el correo.
 
 const CTL_ACTIONS = {
   start:   { args: ["start"],   label: "container_start",   timeout: 20000 },
@@ -231,14 +233,14 @@ const CTL_ACTIONS = {
 };
 
 Object.entries(CTL_ACTIONS).forEach(([action, cfg]) => {
-  router.post(`/container/${action}`, requireAuth, async (req, res) => {
+  router.post(`/container/${action}`, requireAdmin, async (req, res) => {
     try {
       await runDocker([...cfg.args, CONTAINER], { timeout: cfg.timeout });
       appendAudit({ admin: req.session.user || "admin", action: cfg.label, target: CONTAINER });
       const estado = await containerState();
       res.json({ ok: true, accion: action, ...estado });
     } catch (err) {
-      res.status(500).json({ error: `fallo_${action}`, detalle: err.stderr || err.message });
+      sendError(res, 500, `fallo_${action}`, err);
     }
   });
 });
@@ -252,13 +254,13 @@ function streamTar(res, innerArgs, filename, audit) {
   let errBuf = "";
   child.stderr.on("data", d => { if (errBuf.length < 2000) errBuf += d.toString(); });
   child.on("error", (err) => {
-    if (!res.headersSent) res.status(500).json({ error: "fallo_respaldo", detalle: err.message });
+    if (!res.headersSent) sendError(res, 500, "fallo_respaldo", err);
     else res.destroy();
   });
   child.on("close", (code) => {
     // tar devuelve 1 por "file changed as we read it" (correo entrante) — tolerable.
     if (code && code !== 1) {
-      if (!res.headersSent) res.status(500).json({ error: "fallo_respaldo", detalle: errBuf.slice(0, 500) });
+      if (!res.headersSent) sendError(res, 500, "fallo_respaldo", { message: errBuf.slice(0, 500) });
       else res.destroy();
     } else {
       appendAudit(audit);
@@ -268,27 +270,29 @@ function streamTar(res, innerArgs, filename, audit) {
   res.on("close", () => { if (!child.killed) child.kill("SIGKILL"); });
 }
 
+// Respaldo por buzón: disponible para admin y operador (gestión de buzones).
 router.get("/backup/account/:email", requireAuth, (req, res) => {
   const email = decodeURIComponent(req.params.email);
   if (validateEmail(email)) return res.status(400).json({ error: "email_invalido" });
   const [local, domain] = email.split("@");
   const fecha = new Date().toISOString().slice(0, 10);
   streamTar(res, ["-C", "/var/mail", `${domain}/${local}`], `backup-${local}-${domain}-${fecha}.tar.gz`,
-    { action: "backup_mailbox", target: email });
+    { admin: req.session.user, action: "backup_mailbox", target: email });
 });
 
-router.get("/backup/domain/:domain", requireAuth, (req, res) => {
+// Respaldos masivos (dominio completo / todo el correo): solo rol admin.
+router.get("/backup/domain/:domain", requireAdmin, (req, res) => {
   const domain = decodeURIComponent(req.params.domain).toLowerCase();
   if (validateDomain(domain)) return res.status(400).json({ error: "dominio_invalido" });
   const fecha = new Date().toISOString().slice(0, 10);
   streamTar(res, ["-C", "/var/mail", domain], `backup-${domain}-${fecha}.tar.gz`,
-    { action: "backup_domain", target: domain });
+    { admin: req.session.user, action: "backup_domain", target: domain });
 });
 
-router.get("/backup/all", requireAuth, (req, res) => {
+router.get("/backup/all", requireAdmin, (req, res) => {
   const fecha = new Date().toISOString().slice(0, 10);
   streamTar(res, ["-C", "/var/mail", "."], `backup-correo-completo-${fecha}.tar.gz`,
-    { action: "backup_all", target: "todos" });
+    { admin: req.session.user, action: "backup_all", target: "todos" });
 });
 
 module.exports = router;

@@ -7,6 +7,7 @@ const {
   DOMAIN,
   DATA_DIR,
   runDocker,
+  sendError,
   generateRandomPassword,
   validateEmail,
   validatePassword,
@@ -50,7 +51,7 @@ router.get("/accounts", requireAuth, async (req, res) => {
     for (const a of accounts) a.suspended = suspended.has(a.email);
     res.json({ accounts });
   } catch (err) {
-    res.status(500).json({ error: "fallo_listar", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_listar", err);
   }
 });
 
@@ -69,14 +70,14 @@ router.post("/accounts", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "add", email, password]);
     setSuspended(email, false);
-    appendAudit({ action: "create_mailbox", target: email });
+    appendAudit({ admin: req.session.user, action: "create_mailbox", target: email });
     res.json({ ok: true, email });
   } catch (err) {
     const stderr = err.stderr || "";
     if (/already exists/i.test(stderr) || /exist/i.test(stderr)) {
       return res.status(409).json({ error: "cuenta_existente" });
     }
-    res.status(500).json({ error: "fallo_crear", detalle: stderr || err.message });
+    sendError(res, 500, "fallo_crear", err);
   }
 });
 
@@ -90,10 +91,10 @@ router.put("/accounts/:email/password", requireAuth, async (req, res) => {
 
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, password]);
-    appendAudit({ action: "change_password", target: email });
+    appendAudit({ admin: req.session.user, action: "change_password", target: email });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "fallo_actualizar", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_actualizar", err);
   }
 });
 
@@ -105,7 +106,7 @@ router.delete("/accounts/:email", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "del", "-y", email]);
     setSuspended(email, false);
-    appendAudit({ action: "delete_mailbox", target: email });
+    appendAudit({ admin: req.session.user, action: "delete_mailbox", target: email });
     return res.json({ ok: true });
   } catch (err) {
     const stderr = err.stderr || "";
@@ -115,13 +116,13 @@ router.delete("/accounts/:email", requireAuth, async (req, res) => {
         await runDocker(["exec", CONTAINER, "mkdir", "-p", `/var/mail/${domain}/${local}`]);
         await runDocker(["exec", CONTAINER, "setup", "email", "del", "-y", email]);
         setSuspended(email, false);
-        appendAudit({ action: "delete_mailbox", target: email });
+        appendAudit({ admin: req.session.user, action: "delete_mailbox", target: email });
         return res.json({ ok: true });
       } catch (err2) {
-        return res.status(500).json({ error: "fallo_eliminar", detalle: err2.stderr || err2.message });
+        return sendError(res, 500, "fallo_eliminar", err2);
       }
     }
-    res.status(500).json({ error: "fallo_eliminar", detalle: stderr || err.message });
+    sendError(res, 500, "fallo_eliminar", err);
   }
 });
 
@@ -134,10 +135,10 @@ router.post("/accounts/:email/suspend", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, randomPwd]);
     setSuspended(email, true);
-    appendAudit({ action: "suspend", target: email });
+    appendAudit({ admin: req.session.user, action: "suspend", target: email });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "fallo_suspender", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_suspender", err);
   }
 });
 
@@ -152,10 +153,10 @@ router.post("/accounts/:email/unsuspend", requireAuth, async (req, res) => {
   try {
     await runDocker(["exec", CONTAINER, "setup", "email", "update", email, password]);
     setSuspended(email, false);
-    appendAudit({ action: "unsuspend", target: email });
+    appendAudit({ admin: req.session.user, action: "unsuspend", target: email });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "fallo_reactivar", detalle: err.stderr || err.message });
+    sendError(res, 500, "fallo_reactivar", err);
   }
 });
 
@@ -175,15 +176,15 @@ router.put("/accounts/:email/quota", requireAuth, async (req, res) => {
     } else {
       await runDocker(["exec", CONTAINER, "setup", "quota", "set", email, normalized]);
     }
-    appendAudit({ action: "set_quota", target: email, details: `quota=${normalized || "ilimitada"}` });
+    appendAudit({ admin: req.session.user, action: "set_quota", target: email, details: `quota=${normalized || "ilimitada"}` });
     res.json({ ok: true, quota: normalized || "ilimitada" });
   } catch (err) {
     const stderr = err.stderr || "";
     if (/no quota.*set/i.test(stderr) && (!normalized || normalized === "0")) {
-      appendAudit({ action: "set_quota", target: email, details: "quota=ilimitada" });
+      appendAudit({ admin: req.session.user, action: "set_quota", target: email, details: "quota=ilimitada" });
       return res.json({ ok: true, quota: "ilimitada" });
     }
-    res.status(500).json({ error: "fallo_cuota", detalle: stderr || err.message });
+    sendError(res, 500, "fallo_cuota", err);
   }
 });
 
@@ -197,16 +198,16 @@ router.post("/accounts/:email/empty", requireAuth, async (req, res) => {
       ["exec", CONTAINER, "doveadm", "expunge", "-u", email, "mailbox", "*", "all"],
       { timeout: 60000 }
     );
-    appendAudit({ action: "empty_mailbox", target: email });
+    appendAudit({ admin: req.session.user, action: "empty_mailbox", target: email });
     res.json({ ok: true });
   } catch (err) {
     const stderr = err.stderr || "";
     // doveadm devuelve codigo de salida 75 cuando no hay nada que expunge — tratamos como exito.
     if (err.code === 75 || /no messages/i.test(stderr) || /No matching messages/i.test(stderr)) {
-      appendAudit({ action: "empty_mailbox", target: email });
+      appendAudit({ admin: req.session.user, action: "empty_mailbox", target: email });
       return res.json({ ok: true, vacio: true });
     }
-    res.status(500).json({ error: "fallo_vaciar", detalle: stderr || err.message });
+    sendError(res, 500, "fallo_vaciar", err);
   }
 });
 

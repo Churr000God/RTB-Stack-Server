@@ -66,6 +66,7 @@
     return { res, data };
   }
 
+  // kind: "ok" | "err" — cualquier valor distinto de "ok" se muestra como error.
   function flash(text, kind = "ok") {
     const el = $("#flash");
     el.textContent = text;
@@ -105,7 +106,7 @@
     $("#loginView").classList.remove("hidden");
     $("#adminView").classList.add("hidden");
     $("#logoutBtn").classList.add("hidden");
-    setTimeout(() => $("#pwd").focus(), 50);
+    setTimeout(() => $("#usr").focus(), 50);
   }
 
   function showAdmin() {
@@ -117,6 +118,8 @@
     // La pestaña Administradores solo existe para el rol admin.
     const isAdmin = SESSION.role === "admin";
     $(".tab--admin").classList.toggle("hidden", !isAdmin);
+    // Bloques reservados al rol admin (control del contenedor, respaldos masivos).
+    $$(".admin-only").forEach(el => el.classList.toggle("hidden", !isAdmin));
     showSection("panel");
   }
 
@@ -138,7 +141,11 @@
     $$(".section").forEach(s => s.classList.add("hidden"));
     const sec = $(`#sec-${name}`);
     if (sec) sec.classList.remove("hidden");
-    $$(".tab").forEach(t => t.classList.toggle("is-active", t.dataset.section === name));
+    $$(".tab").forEach(t => {
+      const active = t.dataset.section === name;
+      t.classList.toggle("is-active", active);
+      t.setAttribute("aria-selected", String(active));
+    });
     const loader = LOADERS[name];
     if (loader) loader();
   }
@@ -181,7 +188,7 @@
   // ──────────── Buzones: listar + agrupar + buscar ────────────
   async function loadAccounts() {
     const tbody = $("#accountsTbody");
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="muted"><span class="spinner"></span> Cargando…</td></tr>`;
     const { res, data } = await api(`${MAIL_API}/accounts`);
     if (res.status === 401) return showLogin();
     if (!res.ok) {
@@ -219,24 +226,24 @@
           ? `<span class="badge badge--off">Suspendida</span>`
           : `<span class="badge badge--ok">Activa</span>`;
         const toggleBtn = a.suspended
-          ? `<button class="btn-icon btn-icon--ok" data-action="unsuspend" data-email="${e}" title="Reactivar buzón"><span class="ico">▶</span> Reactivar</button>`
-          : `<button class="btn-icon" data-action="suspend" data-email="${e}" title="Suspender buzón"><span class="ico">⏸</span> Desactivar</button>`;
+          ? `<button class="btn-icon btn-icon--ok" data-action="unsuspend" data-email="${e}" title="Reactivar buzón"><span class="ico">▶</span><span class="btn-icon__label"> Reactivar</span></button>`
+          : `<button class="btn-icon" data-action="suspend" data-email="${e}" title="Suspender buzón"><span class="ico">⏸</span><span class="btn-icon__label"> Desactivar</span></button>`;
         html += `
           <tr class="${a.suspended ? "suspended" : ""}">
-            <td class="col-email">${e}</td>
-            <td>${badge}</td>
-            <td>${escapeHtml(a.usado)}</td>
-            <td>${escapeHtml(a.cuota)}</td>
-            <td>${a.porcentaje}%</td>
-            <td class="col-actions">
+            <td class="col-email" data-label="Correo">${e}</td>
+            <td data-label="Estado">${badge}</td>
+            <td data-label="Usado">${escapeHtml(a.usado)}</td>
+            <td data-label="Cuota">${escapeHtml(a.cuota)}</td>
+            <td data-label="%">${a.porcentaje}%</td>
+            <td class="col-actions" data-label="Acciones">
               <div class="actions">
-                <button class="btn-icon" data-action="pwd" data-email="${e}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Pass</button>
-                <button class="btn-icon" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}" title="Definir cuota"><span class="ico">\u{1F4BE}</span> Quota</button>
+                <button class="btn-icon" data-action="pwd" data-email="${e}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span><span class="btn-icon__label"> Pass</span></button>
+                <button class="btn-icon" data-action="quota" data-email="${e}" data-cuota="${escapeHtml(a.cuota)}" title="Definir cuota"><span class="ico">\u{1F4BE}</span><span class="btn-icon__label"> Quota</span></button>
                 ${toggleBtn}
-                <button class="btn-icon" data-action="instructivo" data-email="${e}" title="Ver instructivo"><span class="ico">\u{1F4C4}</span> Instructivo</button>
-                <button class="btn-icon" data-action="backup" data-email="${e}" title="Descargar respaldo"><span class="ico">\u{1F4BE}</span> Respaldo</button>
-                <button class="btn-icon btn-icon--danger" data-action="empty" data-email="${e}" title="Vaciar correos"><span class="ico">\u{1F9F9}</span> Vaciar</button>
-                <button class="btn-icon btn-icon--danger" data-action="del" data-email="${e}" title="Eliminar buzón"><span class="ico">\u{1F5D1}</span> Eliminar</button>
+                <button class="btn-icon" data-action="instructivo" data-email="${e}" title="Ver instructivo"><span class="ico">\u{1F4C4}</span><span class="btn-icon__label"> Instructivo</span></button>
+                <button class="btn-icon" data-action="backup" data-email="${e}" title="Descargar respaldo"><span class="ico">\u{1F4BE}</span><span class="btn-icon__label"> Respaldo</span></button>
+                <button class="btn-icon btn-icon--danger" data-action="empty" data-email="${e}" title="Vaciar correos"><span class="ico">\u{1F9F9}</span><span class="btn-icon__label"> Vaciar</span></button>
+                <button class="btn-icon btn-icon--danger" data-action="del" data-email="${e}" title="Eliminar buzón"><span class="ico">\u{1F5D1}</span><span class="btn-icon__label"> Eliminar</span></button>
               </div>
             </td>
           </tr>`;
@@ -281,7 +288,7 @@
   // ──────────── Dashboard ────────────
   async function loadDashboard() {
     const kpis = $("#kpis");
-    kpis.innerHTML = `<div class="muted">Cargando…</div>`;
+    kpis.innerHTML = `<div class="muted"><span class="spinner"></span> Cargando…</div>`;
     const { res, data } = await api(`${MAIL_API}/dashboard`);
     if (res.status === 401) return showLogin();
     if (!res.ok) { kpis.innerHTML = `<div class="error">${msg(data.error)}</div>`; return; }
@@ -298,7 +305,7 @@
     `;
     const tbody = $("#panelDomains tbody");
     tbody.innerHTML = (data.dominios || []).map(d =>
-      `<tr><td>📂 ${escapeHtml(d.dominio)}</td><td>${d.buzones}</td><td>${escapeHtml(d.disco)}</td></tr>`
+      `<tr><td data-label="Dominio">📂 ${escapeHtml(d.dominio)}</td><td data-label="Buzones">${d.buzones}</td><td data-label="Disco">${escapeHtml(d.disco)}</td></tr>`
     ).join("") || `<tr><td colspan="3" class="muted">Sin dominios.</td></tr>`;
   }
   const kpi = (label, val) => `<div class="kpi"><div class="kpi__val">${val}</div><div class="kpi__label">${escapeHtml(label)}</div></div>`;
@@ -306,23 +313,24 @@
   // ──────────── Almacenamiento ────────────
   async function loadStorage() {
     const wrap = $("#storageWrap");
-    wrap.innerHTML = `<p class="muted">Cargando…</p>`;
+    wrap.innerHTML = `<p class="muted"><span class="spinner"></span> Cargando…</p>`;
     const { res, data } = await api(`${MAIL_API}/storage`);
     if (res.status === 401) return showLogin();
     if (!res.ok) { wrap.innerHTML = `<p class="error">${msg(data.error)}</p>`; return; }
+    const isAdmin = SESSION.role === "admin";
     wrap.innerHTML = (data.dominios || []).map(d => `
-      <div class="card" style="margin-bottom:16px">
+      <div class="card mb-16">
         <div class="row row--space">
           <h2>📂 ${escapeHtml(d.dominio)}</h2>
-          <div class="row" style="gap:10px">
+          <div class="row row--wrap">
             <span class="muted">${d.buzones.length} buzones · Disco: ${escapeHtml(d.disco)}</span>
-            <button class="btn btn--small" data-backup-domain="${escapeHtml(d.dominio)}">⬇️ Respaldo dominio</button>
+            ${isAdmin ? `<button class="btn btn--small" data-backup-domain="${escapeHtml(d.dominio)}">⬇️ Respaldo dominio</button>` : ""}
           </div>
         </div>
         <table class="accounts">
           <thead><tr><th>Buzón</th><th>Usado</th><th>Cuota</th><th>%</th></tr></thead>
           <tbody>${d.buzones.map(b =>
-            `<tr><td class="col-email">${escapeHtml(b.email)}</td><td>${escapeHtml(b.usado)}</td><td>${escapeHtml(b.cuota)}</td><td>${b.porcentaje}%</td></tr>`
+            `<tr><td class="col-email" data-label="Buzón">${escapeHtml(b.email)}</td><td data-label="Usado">${escapeHtml(b.usado)}</td><td data-label="Cuota">${escapeHtml(b.cuota)}</td><td data-label="%">${b.porcentaje}%</td></tr>`
           ).join("")}</tbody>
         </table>
       </div>
@@ -345,7 +353,7 @@
   };
   async function loadAudit() {
     const tbody = $("#auditTbody");
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted"><span class="spinner"></span> Cargando…</td></tr>`;
     const { res, data } = await api(`${MAIL_API}/audit?limit=300`);
     if (res.status === 401) return showLogin();
     const entries = data.entries || [];
@@ -353,14 +361,14 @@
     tbody.innerHTML = entries.map(en => {
       const fecha = new Date(en.ts).toLocaleString("es-MX");
       const accion = ACTION_LABELS[en.action] || en.action;
-      return `<tr><td>${escapeHtml(fecha)}</td><td>${escapeHtml(en.admin || "admin")}</td><td>${escapeHtml(accion)}</td><td class="col-email">${escapeHtml(en.target || "")}</td><td class="muted">${escapeHtml(en.details || "")}</td></tr>`;
+      return `<tr><td data-label="Fecha">${escapeHtml(fecha)}</td><td data-label="Admin">${escapeHtml(en.admin || "admin")}</td><td data-label="Acción">${escapeHtml(accion)}</td><td class="col-email" data-label="Objetivo">${escapeHtml(en.target || "")}</td><td class="muted" data-label="Detalles">${escapeHtml(en.details || "")}</td></tr>`;
     }).join("");
   }
 
   // ──────────── Guía de conexión + instructivos ────────────
   async function loadGuide() {
     const grid = $("#guideServer");
-    grid.innerHTML = `<div class="muted">Cargando…</div>`;
+    grid.innerHTML = `<div class="muted"><span class="spinner"></span> Cargando…</div>`;
     const { res, data } = await api(`${MAIL_API}/connection-info`);
     if (res.status === 401) return showLogin();
     if (res.ok) {
@@ -370,6 +378,8 @@
         ${connCard("📤 SMTP — Saliente", [["Servidor", data.smtp.servidor], ["Puerto", data.smtp.puerto], ["Cifrado", data.smtp.cifrado]])}
         ${connCard("📨 POP3 — Alternativo", [["Servidor", data.pop3.servidor], ["Puerto", data.pop3.puerto], ["Cifrado", data.pop3.cifrado]])}
       `;
+    } else {
+      grid.innerHTML = `<div class="error">${msg(data.error)}</div>`;
     }
     if (!ACCOUNTS.length) await loadAccounts();
     else renderGuideList($("#guideSearch").value.trim().toLowerCase());
@@ -391,7 +401,7 @@
       for (const a of accts) {
         const e = escapeHtml(a.email);
         const badge = a.suspended ? `<span class="badge badge--off">Suspendida</span>` : `<span class="badge badge--ok">Activa</span>`;
-        html += `<tr><td class="col-email">${e}</td><td>${badge}</td><td class="col-actions"><button class="btn-icon" data-guide-email="${e}"><span class="ico">\u{1F4C4}</span> Ver instructivo</button></td></tr>`;
+        html += `<tr><td class="col-email" data-label="Buzón">${e}</td><td data-label="Estado">${badge}</td><td class="col-actions" data-label="Instructivo"><button class="btn-icon" data-guide-email="${e}" title="Ver instructivo"><span class="ico">\u{1F4C4}</span><span class="btn-icon__label"> Ver instructivo</span></button></td></tr>`;
       }
     }
     tbody.innerHTML = html;
@@ -405,21 +415,21 @@
   // ──────────── Verificador DNS ────────────
   async function loadDns() {
     const tbody = $("#dnsTbody");
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">Verificando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="muted"><span class="spinner"></span> Verificando…</td></tr>`;
     const { res, data } = await api(`${MAIL_API}/dns`);
     if (res.status === 401) return showLogin();
     if (!res.ok) { tbody.innerHTML = `<tr><td colspan="4" class="error">${msg(data.error)}</td></tr>`; return; }
     tbody.innerHTML = (data.checks || []).map(c => {
       const cls = c.estado === "ok" ? "badge--ok" : (c.estado === "warn" ? "badge--warn" : "badge--off");
       const txt = c.estado === "ok" ? "OK" : (c.estado === "warn" ? "Revisar" : "Falta");
-      return `<tr><td><strong>${escapeHtml(c.tipo)}</strong></td><td class="muted">${escapeHtml(c.esperado)}</td><td style="word-break:break-all">${escapeHtml(c.encontrado)}</td><td><span class="badge ${cls}">${txt}</span></td></tr>`;
+      return `<tr><td data-label="Registro"><strong>${escapeHtml(c.tipo)}</strong></td><td class="muted" data-label="Esperado">${escapeHtml(c.esperado)}</td><td class="break-all" data-label="Encontrado">${escapeHtml(c.encontrado)}</td><td data-label="Estado"><span class="badge ${cls}">${txt}</span></td></tr>`;
     }).join("");
   }
 
   // ──────────── Monitor del contenedor ────────────
   async function loadMonitor() {
     const wrap = $("#monitorStatus");
-    wrap.innerHTML = `<div class="muted">Cargando…</div>`;
+    wrap.innerHTML = `<div class="muted"><span class="spinner"></span> Cargando…</div>`;
     const { res, data } = await api(`${MAIL_API}/container/status`);
     if (res.status === 401) return showLogin();
     if (res.ok) {
@@ -473,7 +483,7 @@
       msgEl.textContent = "";
       loadMonitor();
     } else {
-      flash(`Error al ${label}: ${data.detalle || data.error || "sin detalle"}`, "error");
+      flash(`Error al ${label}: ${msg(data.error)}`, "err");
       msgEl.textContent = "";
     }
   }
@@ -497,7 +507,7 @@
   // ── Métricas del host ────────────────────────────────────────────────────
   async function loadHostStats() {
     const div = $("#hostStats");
-    div.innerHTML = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label">Cargando…</div></div>`;
+    div.innerHTML = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label"><span class="spinner"></span> Cargando…</div></div>`;
     const { res, data } = await api(`${SYS_API}/host`);
     if (res.status === 401) return showLogin();
     if (!res.ok) {
@@ -520,7 +530,7 @@
   // ── Tabla de contenedores ────────────────────────────────────────────────
   async function loadContainers() {
     const tbody = $("#containersTbody");
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted"><span class="spinner"></span> Cargando…</td></tr>`;
     const { res, data } = await api(`${SYS_API}/containers`);
     if (res.status === 401) return showLogin();
     if (!res.ok) {
@@ -554,29 +564,29 @@
       const stateLabel = c.state === "no_encontrado" ? "ausente" : escapeHtml(c.state);
       const badge = `<span class="badge ${badgeCls}">${stateLabel}</span>`;
       const statusNote = c.statusStr && c.statusStr !== "—"
-        ? ` <span class="muted" style="font-size:11px">${escapeHtml(c.statusStr)}</span>`
+        ? ` <span class="muted status-note">${escapeHtml(c.statusStr)}</span>`
         : "";
 
       let actions = `<span class="muted">—</span>`;
       if (isAdmin && c.state !== "no_encontrado") {
         const startBtn   = !running
-          ? `<button class="btn-icon btn-icon--ok" data-caction="start" data-cname="${escapeHtml(c.name)}" title="Iniciar"><span class="ico">▶</span> Iniciar</button>`
+          ? `<button class="btn-icon btn-icon--ok" data-caction="start" data-cname="${escapeHtml(c.name)}" title="Iniciar"><span class="ico">▶</span><span class="btn-icon__label"> Iniciar</span></button>`
           : "";
         const restartBtn = running
-          ? `<button class="btn-icon" data-caction="restart" data-cname="${escapeHtml(c.name)}" title="Reiniciar"><span class="ico">🔄</span> Reiniciar</button>`
+          ? `<button class="btn-icon" data-caction="restart" data-cname="${escapeHtml(c.name)}" title="Reiniciar"><span class="ico">🔄</span><span class="btn-icon__label"> Reiniciar</span></button>`
           : "";
         const stopBtn    = running
-          ? `<button class="btn-icon btn-icon--danger" data-caction="stop" data-cname="${escapeHtml(c.name)}" title="Detener"><span class="ico">⏹</span> Detener</button>`
+          ? `<button class="btn-icon btn-icon--danger" data-caction="stop" data-cname="${escapeHtml(c.name)}" title="Detener"><span class="ico">⏹</span><span class="btn-icon__label"> Detener</span></button>`
           : "";
         actions = `<div class="actions">${startBtn}${restartBtn}${stopBtn}</div>`;
       }
 
       return `<tr>
-        <td><strong>${escapeHtml(c.name)}</strong></td>
-        <td>${badge}${statusNote}</td>
-        <td>${escapeHtml(c.cpu || "—")}</td>
-        <td>${escapeHtml(c.mem || "—")}</td>
-        <td class="col-actions">${actions}</td>
+        <td data-label="Contenedor"><strong>${escapeHtml(c.name)}</strong></td>
+        <td data-label="Estado">${badge}${statusNote}</td>
+        <td data-label="CPU">${escapeHtml(c.cpu || "—")}</td>
+        <td data-label="Memoria">${escapeHtml(c.mem || "—")}</td>
+        <td class="col-actions" data-label="Acciones">${actions}</td>
       </tr>`;
     }).join("");
   }
@@ -609,7 +619,7 @@
       flash(`Contenedor "${name}" — ${actionLabel} completado. Estado: ${data.state || "?"}`, "ok");
       loadContainers();
     } else {
-      flash(`Error al ${actionLabel} "${name}": ${data.detalle || msg(data.error) || "sin detalle"}`, "error");
+      flash(`Error al ${actionLabel} "${name}": ${msg(data.error)}`, "err");
       // Rehabilitar botones si hubo error (loadContainers re-renderiza los botones en caso de éxito)
       $("#containersTbody").querySelectorAll("button[data-caction]").forEach(b => { b.disabled = false; });
     }
@@ -622,7 +632,7 @@
   async function loadPm2() {
     const statusDiv   = $("#pm2Status");
     const controlsDiv = $("#pm2Controls");
-    statusDiv.innerHTML   = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label">Cargando…</div></div>`;
+    statusDiv.innerHTML   = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label"><span class="spinner"></span> Cargando…</div></div>`;
     controlsDiv.innerHTML = "";
     const { res, data } = await api(`${SYS_API}/pm2`);
     if (res.status === 401) return showLogin();
@@ -688,14 +698,14 @@
       setTimeout(loadPm2, 3500);
       setTimeout(loadPm2, 7000);
     } else {
-      flash(`Error al reiniciar "${proc}": ${data.detalle || msg(data.error) || "sin detalle"}`, "error");
+      flash(`Error al reiniciar "${proc}": ${msg(data.error)}`, "err");
     }
   }
 
   // ── Fail2ban ─────────────────────────────────────────────────────────────
   async function loadFail2ban() {
     const div = $("#fail2banStatus");
-    div.innerHTML = `<p class="muted">Consultando fail2ban…</p>`;
+    div.innerHTML = `<p class="muted"><span class="spinner"></span> Consultando fail2ban…</p>`;
     const { res, data } = await api(`${SYS_API}/fail2ban`);
     if (res.status === 401) return showLogin();
     if (!res.ok) {
@@ -725,13 +735,13 @@
         <tbody>
           ${jails.map(j => `
             <tr>
-              <td><strong>${escapeHtml(j.jail)}</strong></td>
-              <td>${j.failed}</td>
-              <td>${j.banned > 0
+              <td data-label="Jail"><strong>${escapeHtml(j.jail)}</strong></td>
+              <td data-label="Fallidos">${j.failed}</td>
+              <td data-label="Baneados">${j.banned > 0
                 ? `<span class="badge badge--off">${j.banned}</span>`
                 : String(j.banned)}</td>
-              <td class="muted">${j.totalBanned}</td>
-              <td style="word-break:break-all;font-size:12px">
+              <td class="muted" data-label="Total">${j.totalBanned}</td>
+              <td class="break-all ip-list" data-label="IPs baneadas">
                 ${j.ips.length
                   ? j.ips.map(ip => `<code>${escapeHtml(ip)}</code>`).join(" ")
                   : "—"}
@@ -793,6 +803,7 @@
     liveSource.onerror = () => {
       pre.textContent += "[⚠ Stream desconectado]\n";
       stopLiveLogs();
+      checkAuth(); // si la sesión expiró, vuelve al login
     };
 
     const btn = $("#serverLogsLive");
@@ -809,7 +820,7 @@
 
   $("#serverLogsLive").addEventListener("click", () => {
     const name = $("#logTarget").value;
-    if (!name) { flash("Selecciona un contenedor primero.", "error"); return; }
+    if (!name) { flash("Selecciona un contenedor primero.", "err"); return; }
     if (liveSource) {
       stopLiveLogs();
     } else {
@@ -824,14 +835,35 @@
   });
 
   // ──────────── Modales: helpers ────────────
-  function openModal(id) { $(id).classList.remove("hidden"); }
-  function closeModal(id) { $(id).classList.add("hidden"); }
-  $$("[data-close]").forEach(b => b.addEventListener("click", () => {
-    b.closest(".modal").classList.add("hidden");
-  }));
+  // Abren con foco en el primer campo, cierran con Escape / click fuera /
+  // [data-close], devuelven el foco al elemento que los abrió y bloquean el
+  // scroll del body mientras están visibles.
+  let modalTrigger = null;
+  function openModal(id) {
+    modalTrigger = document.activeElement;
+    const m = $(id);
+    m.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    const first = m.querySelector("input, select, textarea");
+    if (first) setTimeout(() => first.focus(), 50);
+  }
+  function closeModal(target) {
+    const m = typeof target === "string" ? $(target) : target;
+    if (!m || m.classList.contains("hidden")) return;
+    m.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    if (modalTrigger && document.body.contains(modalTrigger)) modalTrigger.focus();
+    modalTrigger = null;
+  }
+  $$("[data-close]").forEach(b => b.addEventListener("click", () => closeModal(b.closest(".modal"))));
   $$(".modal").forEach(m => m.addEventListener("click", (e) => {
-    if (e.target === m) m.classList.add("hidden");
+    if (e.target === m) closeModal(m);
   }));
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const open = $$(".modal").find(m => !m.classList.contains("hidden"));
+    if (open) closeModal(open);
+  });
 
   // ──────────── Crear ────────────
   $("#newAccountBtn").addEventListener("click", () => {
@@ -1034,7 +1066,7 @@
   // ──────────── Administradores (solo rol admin) ────────────
   async function loadUsers() {
     const tbody = $("#usersTbody");
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">Cargando…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="muted"><span class="spinner"></span> Cargando…</td></tr>`;
     const { res, data } = await api(`${API}/users`);
     if (res.status === 401) return showLogin();
     if (res.status === 403) { tbody.innerHTML = `<tr><td colspan="4" class="error">${msg("permiso_denegado")}</td></tr>`; return; }
@@ -1048,15 +1080,15 @@
       const fecha = u.createdAt ? new Date(u.createdAt).toLocaleDateString("es-MX") : "—";
       const delBtn = isSelf
         ? `<span class="muted" title="Tu propio usuario">—</span>`
-        : `<button class="btn-icon btn-icon--danger" data-uaction="del" data-user="${escapeHtml(u.username)}" title="Eliminar usuario"><span class="ico">\u{1F5D1}</span> Eliminar</button>`;
+        : `<button class="btn-icon btn-icon--danger" data-uaction="del" data-user="${escapeHtml(u.username)}" title="Eliminar usuario"><span class="ico">\u{1F5D1}</span><span class="btn-icon__label"> Eliminar</span></button>`;
       return `
         <tr>
-          <td class="col-email">${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(tú)</span>' : ""}</td>
-          <td>${roleBadge}</td>
-          <td>${escapeHtml(fecha)}</td>
-          <td class="col-actions">
+          <td class="col-email" data-label="Usuario">${escapeHtml(u.username)}${isSelf ? ' <span class="muted">(tú)</span>' : ""}</td>
+          <td data-label="Rol">${roleBadge}</td>
+          <td data-label="Creado">${escapeHtml(fecha)}</td>
+          <td class="col-actions" data-label="Acciones">
             <div class="actions">
-              <button class="btn-icon" data-uaction="pwd" data-user="${escapeHtml(u.username)}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span> Contraseña</button>
+              <button class="btn-icon" data-uaction="pwd" data-user="${escapeHtml(u.username)}" title="Cambiar contraseña"><span class="ico">\u{1F511}</span><span class="btn-icon__label"> Contraseña</span></button>
               ${delBtn}
             </div>
           </td>
