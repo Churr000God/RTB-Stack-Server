@@ -3,6 +3,7 @@
 
   const API = "/api/admin";
   const MAIL_API = "/api/admin/mail";
+  const SYS_API  = "/api/admin/system";
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -41,6 +42,17 @@
     permiso_denegado: "No tienes permiso para esta acción.",
     no_autoeliminacion: "No puedes eliminar tu propio usuario.",
     ultimo_admin: "No puedes eliminar el último administrador.",
+    // Servidor / contenedores / PM2
+    fallo_host: "No se pudieron obtener las métricas del servidor.",
+    fallo_containers: "No se pudo obtener el estado de los contenedores.",
+    fallo_pm2: "No se pudo obtener el estado de PM2.",
+    fallo_fail2ban: "No se pudo consultar fail2ban.",
+    contenedor_no_permitido: "Contenedor no permitido.",
+    proceso_no_permitido: "Proceso no permitido.",
+    accion_invalida: "Acción no válida.",
+    fallo_start: "Error al iniciar el contenedor.",
+    fallo_stop: "Error al detener el contenedor.",
+    fallo_restart: "Error al reiniciar.",
   };
   const msg = (key) => ERRORS[key] || key || "Error desconocido.";
 
@@ -117,10 +129,12 @@
     guide: loadGuide,
     dns: loadDns,
     monitor: loadMonitor,
+    servidor: loadServidor,
     users: loadUsers,
   };
 
   function showSection(name) {
+    stopLiveLogs(); // cerrar stream SSE si el usuario cambia de pestaña
     $$(".section").forEach(s => s.classList.add("hidden"));
     const sec = $(`#sec-${name}`);
     if (sec) sec.classList.remove("hidden");
@@ -325,6 +339,9 @@
     create_mailbox: "Crear buzón", change_password: "Cambiar contraseña", delete_mailbox: "Eliminar buzón",
     suspend: "Suspender", unsuspend: "Reactivar", set_quota: "Definir cuota", empty_mailbox: "Vaciar buzón",
     backup_mailbox: "Respaldo buzón", backup_domain: "Respaldo dominio", backup_all: "Respaldo total",
+    container_start: "Levantar servidor correo", container_stop: "Detener servidor correo", container_restart: "Reiniciar servidor correo",
+    docker_start: "Iniciar contenedor", docker_stop: "Detener contenedor", docker_restart: "Reiniciar contenedor",
+    pm2_restart: "Reiniciar backend (PM2)",
   };
   async function loadAudit() {
     const tbody = $("#auditTbody");
@@ -463,6 +480,348 @@
   $("#ctlStart").addEventListener("click",   () => containerAction("start",   "levantar"));
   $("#ctlRestart").addEventListener("click", () => containerAction("restart", "reiniciar"));
   $("#ctlStop").addEventListener("click",    () => containerAction("stop",    "detener"));
+
+  // ──────────── Panel: Servidor e infraestructura ───────────────────────────
+
+  // Estado del stream SSE de logs en vivo
+  let liveSource = null;
+
+  // Orquestador principal de la pestaña
+  async function loadServidor() {
+    loadHostStats();
+    loadContainers();
+    loadPm2();
+    loadFail2ban();
+  }
+
+  // ── Métricas del host ────────────────────────────────────────────────────
+  async function loadHostStats() {
+    const div = $("#hostStats");
+    div.innerHTML = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label">Cargando…</div></div>`;
+    const { res, data } = await api(`${SYS_API}/host`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) {
+      div.innerHTML = `<div class="error">${msg(data.error)}</div>`;
+      return;
+    }
+    const swapVal = data.swapWarning
+      ? `<span class="badge badge--warn">0 B ⚠️</span>`
+      : `${escapeHtml(data.swapUsed)} / ${escapeHtml(data.swapTotal)} <span class="muted">(${data.swapPct}%)</span>`;
+    div.innerHTML = `
+      ${kpi("CPU", `${data.cpuCores} núcleos`)}
+      ${kpi("Carga 1/5/15 min", `${escapeHtml(data.load1)} / ${escapeHtml(data.load5)} / ${escapeHtml(data.load15)}`)}
+      ${kpi("RAM", `${escapeHtml(data.memUsed)} / ${escapeHtml(data.memTotal)}<br><span class="muted">${data.memPct}%</span>`)}
+      ${kpi("Swap", swapVal)}
+      ${kpi("Disco (/)", `${escapeHtml(data.diskUsed)} / ${escapeHtml(data.diskTotal)}<br><span class="muted">${data.diskPct}%</span>`)}
+      ${kpi("Uptime", escapeHtml(data.uptime))}
+    `;
+  }
+
+  // ── Tabla de contenedores ────────────────────────────────────────────────
+  async function loadContainers() {
+    const tbody = $("#containersTbody");
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando…</td></tr>`;
+    const { res, data } = await api(`${SYS_API}/containers`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="5" class="error">${msg(data.error)}</td></tr>`;
+      return;
+    }
+    renderContainers(data.containers || []);
+  }
+
+  function renderContainers(containers) {
+    const tbody   = $("#containersTbody");
+    const isAdmin = SESSION.role === "admin";
+
+    // Actualizar el selector de logs con los contenedores actuales
+    const sel = $("#logTarget");
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">— elegir contenedor —</option>` +
+      containers.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("");
+    if (containers.some(c => c.name === prev)) sel.value = prev;
+
+    if (!containers.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Sin contenedores.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = containers.map(c => {
+      const running = c.state === "running";
+      const badgeCls = running ? "badge--ok"
+        : (c.state === "exited" || c.state === "dead" || c.state === "no_encontrado") ? "badge--off"
+        : "badge--warn";
+      const stateLabel = c.state === "no_encontrado" ? "ausente" : escapeHtml(c.state);
+      const badge = `<span class="badge ${badgeCls}">${stateLabel}</span>`;
+      const statusNote = c.statusStr && c.statusStr !== "—"
+        ? ` <span class="muted" style="font-size:11px">${escapeHtml(c.statusStr)}</span>`
+        : "";
+
+      let actions = `<span class="muted">—</span>`;
+      if (isAdmin && c.state !== "no_encontrado") {
+        const startBtn   = !running
+          ? `<button class="btn-icon btn-icon--ok" data-caction="start" data-cname="${escapeHtml(c.name)}" title="Iniciar"><span class="ico">▶</span> Iniciar</button>`
+          : "";
+        const restartBtn = running
+          ? `<button class="btn-icon" data-caction="restart" data-cname="${escapeHtml(c.name)}" title="Reiniciar"><span class="ico">🔄</span> Reiniciar</button>`
+          : "";
+        const stopBtn    = running
+          ? `<button class="btn-icon btn-icon--danger" data-caction="stop" data-cname="${escapeHtml(c.name)}" title="Detener"><span class="ico">⏹</span> Detener</button>`
+          : "";
+        actions = `<div class="actions">${startBtn}${restartBtn}${stopBtn}</div>`;
+      }
+
+      return `<tr>
+        <td><strong>${escapeHtml(c.name)}</strong></td>
+        <td>${badge}${statusNote}</td>
+        <td>${escapeHtml(c.cpu || "—")}</td>
+        <td>${escapeHtml(c.mem || "—")}</td>
+        <td class="col-actions">${actions}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Delegación de clicks en la tabla de contenedores
+  $("#containersTbody").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-caction]");
+    if (!btn) return;
+    await serverContainerAction(btn.dataset.cname, btn.dataset.caction);
+  });
+
+  async function serverContainerAction(name, action) {
+    const actionLabel = action === "start" ? "iniciar" : action === "stop" ? "detener" : "reiniciar";
+    let confirmMsg = `¿Seguro que deseas ${actionLabel} el contenedor "${name}"?`;
+    if (name === "rtb_web") {
+      confirmMsg += "\n\n⚠️ Esto interrumpirá el acceso web y a este panel temporalmente.";
+    }
+    if (!confirm(confirmMsg)) return;
+
+    // Deshabilitar botones durante la operación
+    $("#containersTbody").querySelectorAll("button[data-caction]").forEach(b => { b.disabled = true; });
+
+    const { res, data } = await api(
+      `${SYS_API}/containers/${encodeURIComponent(name)}/${action}`,
+      { method: "POST" }
+    );
+
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      flash(`Contenedor "${name}" — ${actionLabel} completado. Estado: ${data.state || "?"}`, "ok");
+      loadContainers();
+    } else {
+      flash(`Error al ${actionLabel} "${name}": ${data.detalle || msg(data.error) || "sin detalle"}`, "error");
+      // Rehabilitar botones si hubo error (loadContainers re-renderiza los botones en caso de éxito)
+      $("#containersTbody").querySelectorAll("button[data-caction]").forEach(b => { b.disabled = false; });
+    }
+  }
+
+  // Botón de refrescar contenedores
+  $("#containersRefresh").addEventListener("click", loadContainers);
+
+  // ── Backend PM2 ──────────────────────────────────────────────────────────
+  async function loadPm2() {
+    const statusDiv   = $("#pm2Status");
+    const controlsDiv = $("#pm2Controls");
+    statusDiv.innerHTML   = `<div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label">Cargando…</div></div>`;
+    controlsDiv.innerHTML = "";
+    const { res, data } = await api(`${SYS_API}/pm2`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) {
+      statusDiv.innerHTML = `<div class="error">${msg(data.error)}</div>`;
+      return;
+    }
+    const procs = data.procs || [];
+    if (!procs.length) {
+      statusDiv.innerHTML   = `<p class="muted">No se encontraron procesos PM2 en la lista de monitoreo.</p>`;
+      controlsDiv.innerHTML = "";
+      return;
+    }
+    const p = procs[0]; // rtb_backend
+    const sBadge = p.status === "online"
+      ? `<span class="badge badge--ok">online</span>`
+      : p.status === "stopped" || p.status === "errored"
+      ? `<span class="badge badge--off">${escapeHtml(p.status)}</span>`
+      : `<span class="badge badge--warn">${escapeHtml(p.status || "?")}</span>`;
+    statusDiv.innerHTML = `
+      ${kpi("Proceso",   escapeHtml(p.name))}
+      ${kpi("Estado",    sBadge)}
+      ${kpi("CPU",       escapeHtml(p.cpuStr || "—"))}
+      ${kpi("Memoria",   escapeHtml(p.memMB  || "—"))}
+      ${kpi("Uptime",    escapeHtml(p.uptimeStr || "—"))}
+      ${kpi("Reinicios", String(p.restarts || 0))}
+    `;
+    if (SESSION.role === "admin") {
+      controlsDiv.innerHTML = `
+        <button class="btn" id="pm2RestartBtn" data-pm2proc="${escapeHtml(p.name)}">
+          🔄 Reiniciar ${escapeHtml(p.name)}
+        </button>
+        <span class="muted" style="margin-left:8px;font-size:12px">
+          ⚠️ El backend se reiniciará unos segundos — el panel volverá a conectarse solo.
+        </span>`;
+    } else {
+      controlsDiv.innerHTML = `<p class="muted">Solo el rol <strong>admin</strong> puede reiniciar procesos PM2.</p>`;
+    }
+  }
+
+  // Botón de refrescar PM2
+  $("#pm2Refresh").addEventListener("click", loadPm2);
+
+  // Delegación en el contenedor de controles PM2
+  $("#pm2Controls").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-pm2proc]");
+    if (btn) pm2Restart(btn.dataset.pm2proc);
+  });
+
+  async function pm2Restart(proc) {
+    if (!confirm(
+      `¿Reiniciar el proceso PM2 "${proc}"?\n\n` +
+      "⚠️ El backend se reiniciará. Este panel quedará inaccesible por unos segundos y luego volverá solo."
+    )) return;
+    const { res, data } = await api(
+      `${SYS_API}/pm2/${encodeURIComponent(proc)}/restart`,
+      { method: "POST" }
+    );
+    if (res.status === 401) return showLogin();
+    if (res.ok) {
+      flash(`"${proc}" reiniciándose. El panel volverá en unos segundos.`, "ok");
+      // Sondeo para actualizar el estado cuando PM2 levante de nuevo
+      setTimeout(loadPm2, 3500);
+      setTimeout(loadPm2, 7000);
+    } else {
+      flash(`Error al reiniciar "${proc}": ${data.detalle || msg(data.error) || "sin detalle"}`, "error");
+    }
+  }
+
+  // ── Fail2ban ─────────────────────────────────────────────────────────────
+  async function loadFail2ban() {
+    const div = $("#fail2banStatus");
+    div.innerHTML = `<p class="muted">Consultando fail2ban…</p>`;
+    const { res, data } = await api(`${SYS_API}/fail2ban`);
+    if (res.status === 401) return showLogin();
+    if (!res.ok) {
+      div.innerHTML = `<p class="error">${msg(data.error)}</p>`;
+      return;
+    }
+    if (!data.disponible) {
+      div.innerHTML = `<p class="muted">⚠️ fail2ban no disponible o el servidor de correo está detenido.</p>`;
+      return;
+    }
+    const jails = data.jails || [];
+    if (!jails.length) {
+      div.innerHTML = `<p class="muted">No hay jails configurados.</p>`;
+      return;
+    }
+    div.innerHTML = `
+      <table class="accounts">
+        <thead>
+          <tr>
+            <th>Jail</th>
+            <th>Fallidos (act.)</th>
+            <th>Baneados (act.)</th>
+            <th>Total baneados</th>
+            <th>IPs baneadas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${jails.map(j => `
+            <tr>
+              <td><strong>${escapeHtml(j.jail)}</strong></td>
+              <td>${j.failed}</td>
+              <td>${j.banned > 0
+                ? `<span class="badge badge--off">${j.banned}</span>`
+                : String(j.banned)}</td>
+              <td class="muted">${j.totalBanned}</td>
+              <td style="word-break:break-all;font-size:12px">
+                ${j.ips.length
+                  ? j.ips.map(ip => `<code>${escapeHtml(ip)}</code>`).join(" ")
+                  : "—"}
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // Botón de refrescar fail2ban
+  $("#fail2banRefresh").addEventListener("click", loadFail2ban);
+
+  // ── Visor de logs ────────────────────────────────────────────────────────
+  async function loadServerLogs() {
+    const pre  = $("#serverLogs");
+    const name = $("#logTarget").value;
+    if (!name) {
+      pre.textContent = "Selecciona un contenedor para ver sus logs.";
+      return;
+    }
+    stopLiveLogs();
+    pre.textContent = "Cargando…";
+    const res = await fetch(
+      `${SYS_API}/containers/${encodeURIComponent(name)}/logs?lines=300`,
+      { credentials: "same-origin" }
+    );
+    if (res.status === 401) return showLogin();
+    pre.textContent = res.ok ? await res.text() : "No se pudieron obtener los logs.";
+    pre.scrollTop = pre.scrollHeight;
+  }
+
+  function startLiveLogs(name) {
+    stopLiveLogs();
+    const pre = $("#serverLogs");
+    pre.textContent = `[Conectando a logs en vivo de "${name}"…]\n`;
+
+    liveSource = new EventSource(
+      `${SYS_API}/containers/${encodeURIComponent(name)}/logs/stream`
+    );
+
+    liveSource.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (ev.tipo === "log") {
+          const nearBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 120;
+          pre.textContent += ev.linea + "\n";
+          if (nearBottom) pre.scrollTop = pre.scrollHeight;
+        } else if (ev.tipo === "error") {
+          pre.textContent += `[Error del servidor: ${ev.mensaje}]\n`;
+        } else if (ev.tipo === "fin") {
+          pre.textContent += "[Contenedor detuvo el stream]\n";
+          stopLiveLogs();
+        }
+      } catch (_) {}
+    };
+
+    liveSource.onerror = () => {
+      pre.textContent += "[⚠ Stream desconectado]\n";
+      stopLiveLogs();
+    };
+
+    const btn = $("#serverLogsLive");
+    if (btn) { btn.textContent = "⏹ Detener"; btn.classList.add("btn--primary"); }
+  }
+
+  function stopLiveLogs() {
+    if (liveSource) { liveSource.close(); liveSource = null; }
+    const btn = $("#serverLogsLive");
+    if (btn) { btn.textContent = "▶ En vivo"; btn.classList.remove("btn--primary"); }
+  }
+
+  $("#serverLogsRefresh").addEventListener("click", loadServerLogs);
+
+  $("#serverLogsLive").addEventListener("click", () => {
+    const name = $("#logTarget").value;
+    if (!name) { flash("Selecciona un contenedor primero.", "error"); return; }
+    if (liveSource) {
+      stopLiveLogs();
+    } else {
+      startLiveLogs(name);
+    }
+  });
+
+  // Cambiar el contenedor del selector cierra el stream en vivo
+  $("#logTarget").addEventListener("change", () => {
+    stopLiveLogs();
+    $("#serverLogs").textContent = "Selecciona un contenedor para ver sus logs.";
+  });
 
   // ──────────── Modales: helpers ────────────
   function openModal(id) { $(id).classList.remove("hidden"); }

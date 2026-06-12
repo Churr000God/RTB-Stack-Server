@@ -52,6 +52,7 @@
         <button class="tab" data-section="guide">🔌 Guía de conexión</button>
         <button class="tab" data-section="dns">🌐 Verificador DNS</button>
         <button class="tab" data-section="monitor">🩺 Monitor</button>
+        <button class="tab" data-section="servidor">🖥️ Servidor</button>
         <button class="tab tab--admin hidden" data-section="users">👤 Administradores</button>
       </nav>
 
@@ -205,6 +206,75 @@ docker logs --tail 200 mailserver # ver logs
 docker exec mailserver setup email list   # listar buzones
 docker stats --no-stream mailserver       # CPU / memoria</pre>
           </details>
+        </div>
+      </section>
+
+      <!-- ── Sección: Servidor e infraestructura ── -->
+      <section id="sec-servidor" class="section hidden">
+        <div class="row row--space">
+          <h1>Servidor e infraestructura</h1>
+          <button class="btn btn--small" data-refresh="servidor">🔄 Refrescar todo</button>
+        </div>
+
+        <!-- Métricas del host -->
+        <div id="hostStats" class="kpis">
+          <div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label">Cargando…</div></div>
+        </div>
+
+        <!-- Contenedores Docker -->
+        <div class="card" style="margin-top:16px">
+          <div class="row row--space">
+            <h2>📦 Contenedores Docker</h2>
+            <button class="btn btn--small" id="containersRefresh">🔄 Refrescar</button>
+          </div>
+          <table class="accounts">
+            <thead>
+              <tr>
+                <th>Contenedor</th>
+                <th>Estado</th>
+                <th>CPU</th>
+                <th>Memoria</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="containersTbody">
+              <tr><td colspan="5" class="muted">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Backend PM2 -->
+        <div class="card" style="margin-top:16px">
+          <div class="row row--space">
+            <h2>⚙️ Backend Node.js (PM2)</h2>
+            <button class="btn btn--small" id="pm2Refresh">🔄 Refrescar</button>
+          </div>
+          <div id="pm2Status" class="kpis"></div>
+          <div id="pm2Controls" style="margin-top:12px"></div>
+        </div>
+
+        <!-- Fail2ban -->
+        <div class="card" style="margin-top:16px">
+          <div class="row row--space">
+            <h2>🛡️ Fail2ban</h2>
+            <button class="btn btn--small" id="fail2banRefresh">🔄 Actualizar</button>
+          </div>
+          <div id="fail2banStatus"><p class="muted">Cargando…</p></div>
+        </div>
+
+        <!-- Visor de logs -->
+        <div class="card" style="margin-top:16px">
+          <div class="row row--space">
+            <h2>📜 Logs de contenedor</h2>
+            <div class="row" style="gap:8px;flex-wrap:wrap">
+              <select id="logTarget" class="select" style="min-width:180px;width:auto">
+                <option value="">— elegir contenedor —</option>
+              </select>
+              <button class="btn btn--small" id="serverLogsRefresh">🔄 Cargar</button>
+              <button class="btn btn--small" id="serverLogsLive">▶ En vivo</button>
+            </div>
+          </div>
+          <pre id="serverLogs" class="logs" style="max-height:500px">Selecciona un contenedor para ver sus logs.</pre>
         </div>
       </section>
 

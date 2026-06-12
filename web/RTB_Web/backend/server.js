@@ -12,6 +12,7 @@ const adminAuthRoutes = require("./routes/adminAuthRoutes");
 const mailAdminRoutes = require("./routes/mailAdminRoutes");
 const mailOpsRoutes = require("./routes/mailOpsRoutes");
 const adminUsersRoutes = require("./routes/adminUsersRoutes");
+const serverOpsRoutes = require("./routes/serverOpsRoutes");
 
 app.set("trust proxy", 1);
 
@@ -46,6 +47,7 @@ app.use("/api/admin", adminAuthRoutes);
 app.use("/api/admin/users", adminUsersRoutes);
 app.use("/api/admin/mail", mailAdminRoutes);
 app.use("/api/admin/mail", mailOpsRoutes);
+app.use("/api/admin/system", serverOpsRoutes);
 
 // Ruta de prueba opcional
 app.get("/api/status", (req, res) => {
