@@ -13,7 +13,7 @@ contenedores Docker + un backend Node bajo PM2.
 | Servicio | Stack | Dónde | Puerto |
 |---|---|---|---|
 | Sitio web público | HTML/CSS/JS vanilla | `web/RTB_Web/frontend/` | vía nginx 80/443 |
-| **Dashboard de control de correo** (trabajo activo) | HTML/JS + Express | `frontend/admin/` + `backend/routes/{mailAdminRoutes,mailOpsRoutes,adminUsersRoutes}.js` | vía nginx → :3000 |
+| **Dashboard de control de correo** (trabajo activo) | HTML/JS + Express | `frontend/admin/` + `backend/routes/{mailAdminRoutes,mailOpsRoutes,adminUsersRoutes,serverOpsRoutes}.js` | vía nginx → :3000 |
 | API backend | Node.js/Express 5 (PM2) | `web/RTB_Web/backend/` | `localhost:3000` |
 | Servidor de correo | docker-mailserver (Postfix/Dovecot) | `mailserver/` | 25/587/993 |
 | Nextcloud + Collabora + Postgres | Docker | `docker/` + `nextcloud/`, `db/` | vía nginx |
@@ -49,16 +49,19 @@ bajo `/api/admin/*` (sesión con cookie httpOnly, bcrypt, rate-limit 5/15min).
 
 - `api_rtb` (FastAPI en `api/`) en **crash-loop**: bind mount `api/app` tapa los archivos de
   la imagen. Módulo **sin uso** — no lo "arregles" sin confirmar; quizá deba retirarse.
-- **fail2ban** con `nftables-allports`: banea TODOS los puertos, no solo IMAP → el server
-  parece caído. Mitigación pendiente.
-- **Secretos en texto plano** en `docker/docker-compose.yml` (Nextcloud/Postgres).
-- **Sin swap** (16 GB RAM, 0 swap): un pico de memoria puede tirar servicios.
+- **fail2ban**: ya usa `nftables-multiport` (resuelto 2026-06-11; antes allports baneaba todos
+  los puertos). bantime 1h default, jail `custom` 180d. Ban/unban de IPs desde el panel
+  (pestaña Servidor, solo admin) o CLI `docker exec mailserver fail2ban-client set <jail> unbanip <ip>`.
+- **Secretos**: resuelto 2026-06-11 — `docker-compose.yml` usa `${VARS}` desde `docker/.env`
+  (gitignored, 600). No reintroducir valores literales en el compose.
+- **Swap**: resuelto 2026-06-11 — swapfile de 4 GB activo y en `/etc/fstab`.
 - Dirs raíz vacíos placeholder: `admin/ finanzas/ logistica/ ventas/ nube/ app/` — ignóralos.
 
 ## Tests
 
-No hay tests en el repo. Si tocas parseo/agregaciones del panel admin o KPIs, escribe
-tests primero (skill `test-driven-development`).
+Backend: `web/RTB_Web/backend/test/{systemExec,mailExec}.test.js` (node assert puro, sin framework;
+correr con `node test/<archivo>`). Si tocas parseo/agregaciones/validación del panel admin o KPIs,
+escribe tests primero (skill `test-driven-development`) siguiendo ese estilo.
 
 ## graphify
 

@@ -51,7 +51,9 @@ Para operación del día a día, usa el panel web:
 
 **Administradores (usuarios del panel):**
 
-- Sistema **multi-admin con roles**: `admin` (acceso total + gestión de usuarios) y `operador` (gestiona buzones, pero **no** ve la sección Administradores).
+- Sistema **multi-admin con roles**: `admin` (acceso total + gestión de usuarios) y `operador` (gestiona buzones,
+  pero **no** ve la sección Administradores, **no** puede iniciar/detener/reiniciar contenedores, **no** descarga
+  respaldos masivos —dominio/total— y **no** administra fail2ban; el respaldo por buzón sí le está permitido).
 - Solo un `admin` puede **crear usuarios**, **cambiar sus contraseñas** y **eliminarlos**. Protecciones: no puedes eliminar tu propio usuario ni dejar el sistema sin ningún admin.
 - Persistencia: `backend/data/admins.json` (gitignored, hashes bcrypt, permisos `0600`). El admin raíz se siembra automáticamente desde `ADMIN_PASSWORD_HASH` la primera vez.
 - **Rotar contraseña del admin raíz:** hazlo desde el panel (pestaña Administradores → Cambiar contraseña). Para resetear desde cero, borra `backend/data/admins.json`, regenera el hash bcrypt en `ADMIN_PASSWORD_HASH` y `pm2 restart rtb_backend` (se re-siembra).
@@ -61,7 +63,7 @@ Para operación del día a día, usa el panel web:
 - **Auditoría**: toda acción (alta/baja/contraseña/cuota/suspensión/vaciado/respaldo/login y gestión de usuarios) se registra en `backend/data/audit-log.jsonl` y se ve en la pestaña Auditoría.
 - **Verificador DNS**: comprueba MX, A (`mail.`), SPF, DKIM (selector `mail`) y DMARC del dominio vía DNS, con estado OK / Revisar / Falta.
 - **Monitor**: estado/salud, CPU y memoria del contenedor `mailserver`, últimas líneas de log, respaldos y comandos esenciales.
-- **Respaldos**: descarga `tar.gz` por **buzón** (pestaña Buzones), por **dominio** (Almacenamiento) o **total** (Monitor). Se generan en streaming vía `docker exec … tar` (solo lectura, sin archivo temporal). El total pesa ~9 GB y puede tardar varios minutos.
+- **Respaldos**: descarga `tar.gz` por **buzón** (pestaña Buzones), por **dominio** (Almacenamiento, solo admin) o **total** (Monitor, solo admin). Se generan en streaming vía `docker exec … tar` (solo lectura, sin archivo temporal). El total pesa ~9 GB y puede tardar varios minutos.
 - **Servidor** (2026-06-12): panel de infraestructura general. Ver sección dedicada más abajo.
 
 Los comandos CLI siguen disponibles para emergencias o operaciones masivas:
@@ -83,6 +85,13 @@ docker exec -ti mailserver setup email del usuario@refacrtb.com.mx
 ```
 
 ### Fail2ban
+
+**Desde el panel** (recomendado): pestaña **🖥️ Servidor → 🛡️ Fail2ban** (solo rol admin) — cada IP baneada
+tiene un botón **✕** para desbanearla, y hay un formulario jail + IP para banear manualmente. Queda auditado
+(`f2b_ban`/`f2b_unban`). Nota: la jail `custom` tiene bantime de **180 días** (las demás 1h); banear ahí es
+un bloqueo de larga duración — verifica bien la IP.
+
+CLI para emergencias (p. ej. si el panel mismo quedó baneado):
 
 ```bash
 # Estado y bans actuales

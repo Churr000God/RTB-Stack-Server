@@ -96,7 +96,7 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 │       │   ├── routes/
 │       │   │   ├── contactRoutes.js
 │       │   │   ├── mailAdminRoutes.js   → /api/admin/mail (cuentas, cuotas)
-│       │   │   ├── mailOpsRoutes.js     → /api/admin/mail (logs, start/stop, monitor)
+│       │   │   ├── mailOpsRoutes.js     → /api/admin/mail (logs, monitor; start/stop y respaldos masivos solo admin)
 │       │   │   ├── adminUsersRoutes.js  → /api/admin/users (multi-admin)
 │       │   │   └── serverOpsRoutes.js   → /api/admin/system (host, contenedores, PM2, fail2ban)
 │       │   ├── utils/
@@ -108,7 +108,8 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 │       │   │   ├── requireAuth.js
 │       │   │   └── requireAdmin.js
 │       │   ├── test/
-│       │   │   └── systemExec.test.js  → 21 pruebas de parsers (node assert)
+│       │   │   ├── systemExec.test.js  → 28 pruebas: parsers + validadores fail2ban (node assert)
+│       │   │   └── mailExec.test.js    → 25 pruebas: validación email/dominio/cuota + parseAccounts
 │       │   └── data/
 │       │       ├── admins.json          → usuarios admin (gitignored)
 │       │       └── audit-log.jsonl      → auditoría de acciones (gitignored)
@@ -127,7 +128,8 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
   - `POST /api/contacto` — recibe formulario, genera PDF con Puppeteer y lo sube a Nextcloud vía WebDAV.
   - `/api/admin/mail/*` — gestión de buzones de correo (`mailAdminRoutes.js`, `mailOpsRoutes.js`); requiere sesión.
   - `/api/admin/users/*` — gestión de usuarios admin (`adminUsersRoutes.js`); requiere rol admin.
-  - `/api/admin/system/*` — monitoreo de infraestructura (`serverOpsRoutes.js`): métricas host, estado de contenedores Docker, logs (tail + SSE streaming), control PM2, jails fail2ban. Lecturas: `requireAuth`; acciones (start/stop/restart): `requireAdmin`.
+  - `/api/admin/system/*` — monitoreo de infraestructura (`serverOpsRoutes.js`): métricas host, estado de contenedores Docker, logs (tail + SSE streaming), control PM2, jails fail2ban (estado + ban/unban de IPs). Lecturas: `requireAuth`; acciones (start/stop/restart, pm2, fail2ban): `requireAdmin`.
+  - Endurecido 2026-06-12: errores API sin detalle interno (`sendError` → log PM2), sin CORS, `SESSION_SECRET` obligatorio en producción, regeneración de sesión en login, CSP estricta para `/admin/` en nginx, validación anti-traversal de email/dominio.
 
 ## Componente correo
 
@@ -185,7 +187,7 @@ sin uso real. El directorio `api/` permanece en el repo pero el contenedor ya no
 
 1. ~~`api_rtb` en crash-loop~~ — **eliminado 2026-06-11**.
 2. **Secretos en texto plano en docker-compose** — `NEXTCLOUD_ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `collabora password` en `docker/docker-compose.yml`. Pendiente rotación a Docker secrets o archivo `.env` gitignored.
-3. **fail2ban `nftables-allports`** — al banear una IP por intentos IMAP fallidos, bloquea ICMP/HTTP/HTTPS también; da falsa impresión de "servidor caído". Mitigación pendiente: cambiar a `nftables-multiport` solo para los puertos de correo.
+3. **fail2ban** — ✅ resuelto (2026-06-11): `banaction = nftables-multiport` (antes `allports` bloqueaba ICMP/HTTP/HTTPS y daba falsa impresión de "servidor caído"). bantime default 1h; jail `custom` mantiene 180d. Desde 2026-06-12 el ban/unban de IPs también se hace desde el panel (pestaña Servidor → Fail2ban, solo admin).
 4. **Sin swap** — 16 GB RAM, 0 swap. Un pico de OOM puede tumbar servicios. Pendiente agregar 4 GB de swapfile.
 5. **Sin backups automatizados** — `mailserver/mail-data/` y `nextcloud/data/` no tienen snapshot/offsite. Riesgo crítico de pérdida de datos.
 6. **Sin swap** — 16 GB RAM y 0 B de swap; un pico puede tumbar servicios.
