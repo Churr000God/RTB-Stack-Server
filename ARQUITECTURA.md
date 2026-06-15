@@ -54,15 +54,16 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 
 | Contenedor | Imagen | Red | Restart | Estado |
 |---|---|---|---|---|
-| `rtb_web` | `nginx:latest` | rtbnet | unless-stopped | reverse proxy + TLS |
-| `nextcloud` | `nextcloud` | rtbnet | unless-stopped | nube privada |
-| `postgres` | `postgres:15` | rtbnet | unless-stopped | BD de Nextcloud |
-| `collabora` | `collabora/code` | rtbnet | unless-stopped | edición documentos |
-| `roundcube` | `roundcube/roundcubemail:latest-apache` | rtbnet | unless-stopped | webmail (SQLite) en `mail.refacrtb.com.mx` |
-| `onlyoffice` | `onlyoffice/documentserver` | rtbnet | **no** | sin uso documentado |
-| `portainer` | `portainer/portainer-ce` | rtbnet | unless-stopped | gestión Docker |
-| `mailserver` | `mailserver/docker-mailserver` | mailserver_default | always | correo |
-| `api_rtb` | `docker-api` (local) | docker_default | always | **⚠️ crash-loop, ver §Problemas** |
+| `rtb_web` | `nginx:1` | rtbnet | unless-stopped | reverse proxy + TLS; healthcheck `curl /` |
+| `nextcloud` | `nextcloud:31` | rtbnet + db_net | unless-stopped | nube privada; healthcheck `/status.php`; mem 4 GB |
+| `postgres` | `postgres:15` | db_net (interna) | unless-stopped | BD de Nextcloud; healthcheck `pg_isready`; mem 1 GB |
+| `redis` | `redis:alpine` | db_net (interna) | unless-stopped | caché Nextcloud; healthcheck `ping`; mem 256 MB |
+| `collabora` | `collabora/code` | rtbnet | unless-stopped | edición documentos; mem 2 GB |
+| `roundcube` | `roundcube/roundcubemail:latest-apache` | rtbnet | unless-stopped | webmail (SQLite) en `mail.refacrtb.com.mx`; mem 512 MB |
+| `portainer` | `portainer/portainer-ce:lts` | ninguna (solo docker.sock) | unless-stopped | gestión Docker en `127.0.0.1:9443` |
+| `mailserver` | `mailserver/docker-mailserver:latest` | mailserver_default | always | correo (Postfix/Dovecot/fail2ban) |
+
+> `api_rtb` eliminado 2026-06-11. `onlyoffice` sin uso, restart=`no` — si aparece en `docker ps -a` es un zombie.
 
 ## Estructura de directorios
 
@@ -85,12 +86,33 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 │   ├── docker-compose.yml   → variante alterna para nginx (NO se usa actualmente)
 │   ├── nginx/default.conf   → configuración vhost de producción
 │   └── RTB_Web/
-│       ├── frontend/        → sitio estático servido por nginx
-│       ├── backend/         → Node.js (Express), corre en PM2 fuera de Docker
+│       ├── frontend/          → sitio estático servido por nginx
+│       │   └── admin/         → panel de administración (SPA vanilla JS)
+│       │       ├── index.html
+│       │       ├── admin.js
+│       │       └── admin.css
+│       ├── backend/           → Node.js (Express 5), corre en PM2 fuera de Docker
 │       │   ├── server.js
-│       │   ├── routes/      → contactRoutes.js (productos y chatbot vacíos)
-│       │   ├── controllers/ → contactController.js (genera PDF + sube a Nextcloud)
-│       │   └── utils/pdfGenerator.js (Puppeteer)
+│       │   ├── routes/
+│       │   │   ├── contactRoutes.js
+│       │   │   ├── mailAdminRoutes.js   → /api/admin/mail (cuentas, cuotas)
+│       │   │   ├── mailOpsRoutes.js     → /api/admin/mail (logs, monitor; start/stop y respaldos masivos solo admin)
+│       │   │   ├── adminUsersRoutes.js  → /api/admin/users (multi-admin)
+│       │   │   └── serverOpsRoutes.js   → /api/admin/system (host, contenedores, PM2, fail2ban)
+│       │   ├── utils/
+│       │   │   ├── mailExec.js      → execFile wrapper para docker (correo)
+│       │   │   ├── systemExec.js    → execFile wrapper genérico, allowlists, parsers
+│       │   │   ├── auditLog.js      → appendAudit() → data/audit-log.jsonl
+│       │   │   └── adminStore.js    → gestión de admins con bcrypt
+│       │   ├── middleware/
+│       │   │   ├── requireAuth.js
+│       │   │   └── requireAdmin.js
+│       │   ├── test/
+│       │   │   ├── systemExec.test.js  → 28 pruebas: parsers + validadores fail2ban (node assert)
+│       │   │   └── mailExec.test.js    → 25 pruebas: validación email/dominio/cuota + parseAccounts
+│       │   └── data/
+│       │       ├── admins.json          → usuarios admin (gitignored)
+│       │       └── audit-log.jsonl      → auditoría de acciones (gitignored)
 │       └── database/        → schema.sql y seed.js (vacíos)
 ├── api/                     → API FastAPI alternativa (no se usa, ver §Problemas)
 ├── app/                     → boilerplate React (sin uso aparente)
@@ -100,10 +122,14 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 
 ## Componente web (nginx + frontend + backend)
 
-- **Frontend**: HTML/CSS estático en `web/RTB_Web/frontend/`, montado read-only en `rtb_web` y servido en `/`.
-- **Backend**: Express 5 corriendo bajo **PM2 nativo** (no en Docker) con PID 3990897, namespace `default`, proceso `rtb_backend`. Escucha en `:3000` del host. nginx hace `proxy_pass http://172.17.0.1:3000/api/` (gateway de Docker → host).
-- **Endpoint público**:
-  - `POST /api/contacto` — recibe formulario, genera PDF con Puppeteer y lo sube a Nextcloud vía WebDAV usando credenciales de `process.env.NEXTCLOUD_*` (que no están establecidas en `.env` actual — el upload se omite silenciosamente).
+- **Frontend**: HTML/CSS estático en `web/RTB_Web/frontend/`, montado read-only en `rtb_web` y servido en `/`. Incluye panel de administración SPA vanilla JS en `frontend/admin/` (index.html + admin.js + admin.css).
+- **Backend**: Express 5 corriendo bajo **PM2 nativo** (no en Docker), proceso `rtb_backend`. Escucha en `:3000` del host. nginx hace `proxy_pass http://172.17.0.1:3000/api/` (gateway de Docker → host).
+- **Endpoints**:
+  - `POST /api/contacto` — recibe formulario, genera PDF con Puppeteer y lo sube a Nextcloud vía WebDAV.
+  - `/api/admin/mail/*` — gestión de buzones de correo (`mailAdminRoutes.js`, `mailOpsRoutes.js`); requiere sesión.
+  - `/api/admin/users/*` — gestión de usuarios admin (`adminUsersRoutes.js`); requiere rol admin.
+  - `/api/admin/system/*` — monitoreo de infraestructura (`serverOpsRoutes.js`): métricas host, estado de contenedores Docker, logs (tail + SSE streaming), control PM2, jails fail2ban (estado + ban/unban de IPs). Lecturas: `requireAuth`; acciones (start/stop/restart, pm2, fail2ban): `requireAdmin`.
+  - Endurecido 2026-06-12: errores API sin detalle interno (`sendError` → log PM2), sin CORS, `SESSION_SECRET` obligatorio en producción, regeneración de sesión en login, CSP estricta para `/admin/` en nginx, validación anti-traversal de email/dominio.
 
 ## Componente correo
 
@@ -138,37 +164,32 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 - **Collabora**: edita documentos desde Nextcloud. `--o:ssl.enable=false` porque TLS lo termina nginx.
 - **OnlyOffice**: corriendo en `:8080` pero NO está enrutado por nginx ni es usado por Nextcloud. Restart policy = `no` (no inicia tras reboot).
 
-## Componente API alternativa (FastAPI)
+## Componente API alternativa (FastAPI) — eliminado
 
-`api_rtb` está pensado como alternativa al backend Node, pero **actualmente en crash-loop**.
-
-- Imagen: `docker-api` (build local de `/opt/proyectos/rtb/api/Dockerfile`).
-- Bind mount: `/opt/proyectos/rtb/api/app` → `/app`.
-- Variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, etc. (relay vía MailerSend).
-- Funcionalidad: `POST /contact` que envía email con `smtplib`.
+`api_rtb` fue eliminado el 2026-06-11 (purga completa). Era una API FastAPI en crash-loop
+sin uso real. El directorio `api/` permanece en el repo pero el contenedor ya no corre.
 
 ## Redes Docker
 
 | Red | Uso | Containers |
 |---|---|---|
-| `rtbnet` | web + nube + colaboración | nginx, nextcloud, postgres, collabora, roundcube, portainer, onlyoffice |
+| `rtbnet` | web + nube + colaboración | nginx, nextcloud, collabora, roundcube, portainer |
+| `db_net` | interna BD (sin acceso exterior) | postgres, redis, nextcloud |
 | `mailserver_default` | aislada para correo | mailserver |
-| `docker_default` | default | api_rtb (descolgado del resto) |
 | `bridge` | sin uso productivo | — |
-| `docker_rtbnet` | duplicado de rtbnet | — |
 
 ## Procesos fuera de Docker
 
-- **PM2** corriendo `rtb_backend` (Node.js Express), user `rtbadmin`, restart count 30 (ha caído varias veces).
-- **certbot** (asumido por `/etc/letsencrypt`).
+- **PM2** corriendo `rtb_backend` (Node.js Express 5), user `rtbadmin`. Controlable desde panel `/admin/` (pestaña Servidor).
+- **certbot** webroot en `/var/www/html/.well-known/` — renueva automáticamente vía cron.
 
-## Problemas conocidos (al 2026-05-13)
+## Problemas conocidos (actualizado 2026-06-12)
 
-1. **`api_rtb` en crash-loop** — el bind mount `/opt/proyectos/rtb/api/app` está vacío y eclipsa `main.py` que la imagen copia a `/app/`. O se elimina el bind mount, o se mueven los archivos `api/{main.py,email_utils.py}` a `api/app/`.
-2. **Secretos en texto plano en docker-compose** — `db/admin/admin123`, `securepass`, `adminpass` en `docker/docker-compose.yml`.
-3. **fail2ban `nftables-allports`** — al banear una IP por intentos IMAP fallidos, bloquea ICMP/HTTP/HTTPS también; da falsa impresión de "servidor caído".
-4. **Discrepancia entre compose files** — existen 3 docker-compose para nginx (`docker/`, `web/`, `web/RTB_Web/deploy/`) con paths diferentes. Solo `docker/docker-compose.yml` refleja lo que efectivamente corre (pero monta `../web/html` que no existe; el container real fue arrancado a mano con la ruta correcta).
-5. **OnlyOffice descolgado** — corre pero no se usa; consume ~500 MB de RAM y 7 volúmenes.
+1. ~~`api_rtb` en crash-loop~~ — **eliminado 2026-06-11**.
+2. **Secretos en texto plano en docker-compose** — `NEXTCLOUD_ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `collabora password` en `docker/docker-compose.yml`. Pendiente rotación a Docker secrets o archivo `.env` gitignored.
+3. **fail2ban** — ✅ resuelto (2026-06-11): `banaction = nftables-multiport` (antes `allports` bloqueaba ICMP/HTTP/HTTPS y daba falsa impresión de "servidor caído"). bantime default 1h; jail `custom` mantiene 180d. Desde 2026-06-12 el ban/unban de IPs también se hace desde el panel (pestaña Servidor → Fail2ban, solo admin).
+4. **Sin swap** — 16 GB RAM, 0 swap. Un pico de OOM puede tumbar servicios. Pendiente agregar 4 GB de swapfile.
+5. **Sin backups automatizados** — `mailserver/mail-data/` y `nextcloud/data/` no tienen snapshot/offsite. Riesgo crítico de pérdida de datos.
 6. **Sin swap** — 16 GB RAM y 0 B de swap; un pico puede tumbar servicios.
 7. **Sin IPv6** — clientes IPv6-only no pueden alcanzar el servidor; clientes dual-stack pueden tener latencia adicional por timeout de IPv6.
 8. **Carpetas vacías versionadas** — `admin/`, `ventas/`, `finanzas/`, `logistica/`, `nube/`, `app/`, `api/app/` están vacías; ruido en el repo.

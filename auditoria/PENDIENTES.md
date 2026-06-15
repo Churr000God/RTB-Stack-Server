@@ -43,7 +43,7 @@
 - [x] **B5.5** Segmentar redes Docker (red `db` interna; sacar postgres/portainer de la red de nginx) — **HECHO 2026-06-11**. Nueva red `db_net` (`internal: true`); postgres y redis solo en `db_net`; nextcloud en `rtbnet` + `db_net`; portainer fuera de toda red de app (gestiona vía `docker.sock`). Verificado: `docker network inspect docker_db_net` → nextcloud+postgres+redis; `docker network inspect rtbnet` → sin postgres ni portainer
 
 ## Bloque 6 — Correo (🟡, esf. B)
-- [~] **B6.1** DMARC `rua` a buzón propio; confirmar CNAMEs DKIM de MailerSend — **DOCUMENTADO 2026-06-11, esperando DNS**. Instrucciones exactas en [DNS-B6.1.md](DNS-B6.1.md): cambiar `rua` a `admin@refacrtb.com.mx`; obtener CNAMEs de MailerSend y publicarlos; bajar DNS `api.`/`app.`. El operador aplica los cambios en el panel IONOS
+- [x] **B6.1** DMARC `rua` a buzón propio; CNAMEs DKIM MailerSend — **HECHO 2026-06-12**. DMARC: `v=DMARC1; p=reject; rua/ruf=admin@refacrtb.com.mx; fo=1`. DKIM selector `mlsend2` (CNAME → `mlsend2._domainkey.mailersend.net`). Return-Path `mta.` → `mailersend.net`. DNS `api.`/`app.` eliminados. `DKIM_SELECTOR=mlsend2` en `.env` backend. Verificado contra autoritativo. Detalle en [DNS-B6.1.md](DNS-B6.1.md)
 
 ## Bloque N — Hallazgos nuevos 2026-06-11 (auditoría de re-revisión de nube)
 - [x] **N1** Background jobs en modo AJAX — **RESUELTO 2026-06-11**. `occ background:cron`; cron host `*/5 * * * * docker exec -u www-data nextcloud php cron.php`
@@ -64,7 +64,6 @@
 | B0.4 | Prueba restore real en contenedor desechable | 🔴 |
 | B3.2 | SSH: password habilitado (riesgo aceptado; Ed25519 disponible como alternativa) | 🟠 |
 | B3.4 | Acotar sudo NOPASSWD:ALL de rtbadmin (riesgo aceptado) | 🟠 |
-| B6.1 | DMARC rua + CNAMEs DKIM MailerSend (doc lista, operador aplica DNS) | 🟡 |
 
 ---
 ### Bitácora
@@ -76,4 +75,5 @@
 - **2026-06-09** — B0.3 iniciado y PAUSADO: VPS+Pi configurados, test OK; 1ª sync falló por hardware (SSD USB se desconecta por potencia). Sesión abierta en `SESION-ABIERTA.md`.
 - **2026-06-11** — Sesión de endurecimiento de la nube completada. Cerrados: B1.1, B1.2, B2.1 (ya estaba), B2.2, B3.1, B3.6, B4.2, B4.3, B5.3, B5.4, B6.2, N1–N6, N8. Parcial: N7. 10 commits en rama `feat/dashboard-correo-multiadmin`. Detalle en [SESION-NUBE-2026-06-11.md](SESION-NUBE-2026-06-11.md).
 - **2026-06-11** — **Incidente 2FA admin Nextcloud**: tras rotación de contraseña el usuario no podía entrar (TOTP + notificación NC fallaban). Ambos factores deshabilitados vía `occ twofactorauth:disable`. **Pendiente: reconfigurar TOTP** en Configuración → Seguridad.
+- **2026-06-12** — B6.1 CERRADO: DMARC corregido (`v=DMARC1; p=reject; rua/ruf=admin@; fo=1`), CNAMEs DKIM MailerSend publicados (selector `mlsend2`), Return-Path `mta.` → `mailersend.net`, DNS `api.`/`app.` eliminados. `DKIM_SELECTOR=mlsend2` en backend `.env`. Verificado contra ns15.domaincontrol.com.
 - **2026-06-11** — Sesión de cierre de pendientes. Cerrados: B1.3 (purga git + force-push, bundle en `/opt/backups/`), B1.4 (`occ user:disable admin`), B3.5 (`AllowUsers rtbadmin root` en drop-in `01-rtb-hardening.conf`), B5.1 (apt upgrade 32 paquetes, Docker 29.5.3), B5.2 (no-aplica: kernel ya actualizado). Clave Ed25519 generada para rtbadmin. B3.2/B3.4: riesgo aceptado por el operador.

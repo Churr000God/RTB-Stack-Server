@@ -44,18 +44,19 @@
 
     <!-- Panel administrativo -->
     <section id="adminView" class="hidden">
-      <nav class="tabs" id="tabs">
-        <button class="tab is-active" data-section="panel">📊 Panel</button>
-        <button class="tab" data-section="buzones">📬 Buzones</button>
-        <button class="tab" data-section="storage">💾 Almacenamiento</button>
-        <button class="tab" data-section="audit">📋 Auditoría</button>
-        <button class="tab" data-section="guide">🔌 Guía de conexión</button>
-        <button class="tab" data-section="dns">🌐 Verificador DNS</button>
-        <button class="tab" data-section="monitor">🩺 Monitor</button>
-        <button class="tab tab--admin hidden" data-section="users">👤 Administradores</button>
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Secciones del panel">
+        <button class="tab is-active" role="tab" aria-selected="true" data-section="panel">📊 Panel</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="buzones">📬 Buzones</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="storage">💾 Almacenamiento</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="audit">📋 Auditoría</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="guide">🔌 Guía de conexión</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="dns">🌐 Verificador DNS</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="monitor">🩺 Monitor</button>
+        <button class="tab" role="tab" aria-selected="false" data-section="servidor">🖥️ Servidor</button>
+        <button class="tab tab--admin hidden" role="tab" aria-selected="false" data-section="users">👤 Administradores</button>
       </nav>
 
-      <div id="flash" class="flash hidden"></div>
+      <div id="flash" class="flash hidden" role="status" aria-live="polite"></div>
 
       <!-- ── Sección: Panel / KPIs ── -->
       <section id="sec-panel" class="section">
@@ -64,11 +65,11 @@
           <button class="btn btn--small" data-refresh="panel">🔄 Refrescar</button>
         </div>
         <div id="kpis" class="kpis"></div>
-        <div class="card" style="margin-top:16px">
+        <div class="card mt-16">
           <h2>Dominios</h2>
           <table class="accounts" id="panelDomains">
             <thead><tr><th>Dominio</th><th>Buzones</th><th>Disco</th></tr></thead>
-            <tbody><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
+            <tbody><tr><td colspan="3" class="muted"><span class="spinner"></span> Cargando…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -93,7 +94,7 @@
               </tr>
             </thead>
             <tbody id="accountsTbody">
-              <tr><td colspan="6" class="muted">Cargando…</td></tr>
+              <tr><td colspan="6" class="muted"><span class="spinner"></span> Cargando…</td></tr>
             </tbody>
           </table>
         </div>
@@ -105,7 +106,7 @@
           <h1>Almacenamiento por dominio</h1>
           <button class="btn btn--small" data-refresh="storage">🔄 Refrescar</button>
         </div>
-        <div id="storageWrap"><p class="muted">Cargando…</p></div>
+        <div id="storageWrap"><p class="muted"><span class="spinner"></span> Cargando…</p></div>
       </section>
 
       <!-- ── Sección: Auditoría ── -->
@@ -117,7 +118,7 @@
         <div class="card">
           <table class="accounts">
             <thead><tr><th>Fecha</th><th>Admin</th><th>Acción</th><th>Objetivo</th><th>Detalles</th></tr></thead>
-            <tbody id="auditTbody"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+            <tbody id="auditTbody"><tr><td colspan="5" class="muted"><span class="spinner"></span> Cargando…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -132,15 +133,15 @@
           <h2>⚙️ Datos del servidor de correo</h2>
           <p class="muted">Proporcionar a los usuarios finales.</p>
           <div id="guideServer" class="conn-grid"></div>
-          <p class="muted" style="margin-top:14px">El nombre de usuario es siempre la dirección de correo completa
+          <p class="muted mt-14">El nombre de usuario es siempre la dirección de correo completa
             (ej: <strong>info@refacrtb.com.mx</strong>). La contraseña es la asignada desde el panel.</p>
         </div>
-        <div class="card" style="margin-top:16px">
+        <div class="card mt-16">
           <h2>📄 Generar instructivo por buzón</h2>
           <input id="guideSearch" type="text" placeholder="Buscar email…" class="search">
           <table class="accounts">
             <thead><tr><th>Buzón</th><th>Estado</th><th class="col-actions">Instructivo</th></tr></thead>
-            <tbody id="guideTbody"><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
+            <tbody id="guideTbody"><tr><td colspan="3" class="muted"><span class="spinner"></span> Cargando…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -154,7 +155,7 @@
         <div class="card">
           <table class="accounts">
             <thead><tr><th>Registro</th><th>Esperado</th><th>Encontrado</th><th>Estado</th></tr></thead>
-            <tbody id="dnsTbody"><tr><td colspan="4" class="muted">Verificando…</td></tr></tbody>
+            <tbody id="dnsTbody"><tr><td colspan="4" class="muted"><span class="spinner"></span> Verificando…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -167,35 +168,35 @@
         </div>
         <div id="monitorStatus" class="kpis"></div>
 
-        <div class="card" style="margin-top:16px">
+        <div class="card mt-16 admin-only">
           <h2>💾 Respaldos</h2>
           <p class="muted">Descarga los buzones en <code>.tar.gz</code> (solo lectura, vía contenedor).</p>
-          <div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row row--wrap">
             <button class="btn" id="backupAllBtn">⬇️ Respaldo total (todo el correo)</button>
             <span class="muted">El respaldo total pesa varios GB; puede tardar minutos. Respaldo por buzón en la pestaña Buzones.</span>
           </div>
         </div>
 
-        <div class="card" style="margin-top:16px">
+        <div class="card mt-16">
           <div class="row row--space">
             <h2>📜 Logs (últimas líneas)</h2>
             <button class="btn btn--small" id="logsRefresh">🔄 Recargar logs</button>
           </div>
-          <pre id="monitorLogs" class="logs">Cargando…</pre>
+          <pre id="monitorLogs" class="logs"><span class="spinner"></span> Cargando…</pre>
         </div>
 
-        <div class="card" style="margin-top:16px">
+        <div class="card mt-16 admin-only">
           <h2>🛠️ Control del servidor de correo</h2>
           <p class="muted">Las acciones se ejecutan directamente sobre el contenedor. Se confirma antes de cada operación.</p>
-          <div class="row" style="flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+          <div class="row row--wrap mb-10">
             <button class="btn" id="ctlStart">▶️ Levantar</button>
             <button class="btn" id="ctlRestart">🔄 Reiniciar</button>
             <button class="btn btn--danger" id="ctlStop">⏹️ Detener</button>
             <span id="ctlMsg" class="muted"></span>
           </div>
-          <details style="margin-top:6px">
-            <summary class="muted" style="cursor:pointer;font-size:0.85em">📋 Comandos manuales (referencia SSH)</summary>
-            <pre class="logs" style="margin-top:8px">cd /opt/proyectos/rtb/mailserver
+          <details class="mt-8">
+            <summary class="muted summary-link">📋 Comandos manuales (referencia SSH)</summary>
+            <pre class="logs mt-8">cd /opt/proyectos/rtb/mailserver
 
 docker compose ps                 # estado
 docker compose up -d              # levantar
@@ -205,6 +206,75 @@ docker logs --tail 200 mailserver # ver logs
 docker exec mailserver setup email list   # listar buzones
 docker stats --no-stream mailserver       # CPU / memoria</pre>
           </details>
+        </div>
+      </section>
+
+      <!-- ── Sección: Servidor e infraestructura ── -->
+      <section id="sec-servidor" class="section hidden">
+        <div class="row row--space">
+          <h1>Servidor e infraestructura</h1>
+          <button class="btn btn--small" data-refresh="servidor">🔄 Refrescar todo</button>
+        </div>
+
+        <!-- Métricas del host -->
+        <div id="hostStats" class="kpis">
+          <div class="kpi"><div class="kpi__val muted">—</div><div class="kpi__label"><span class="spinner"></span> Cargando…</div></div>
+        </div>
+
+        <!-- Contenedores Docker -->
+        <div class="card mt-16">
+          <div class="row row--space">
+            <h2>📦 Contenedores Docker</h2>
+            <button class="btn btn--small" id="containersRefresh">🔄 Refrescar</button>
+          </div>
+          <table class="accounts">
+            <thead>
+              <tr>
+                <th>Contenedor</th>
+                <th>Estado</th>
+                <th>CPU</th>
+                <th>Memoria</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="containersTbody">
+              <tr><td colspan="5" class="muted"><span class="spinner"></span> Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Backend PM2 -->
+        <div class="card mt-16">
+          <div class="row row--space">
+            <h2>⚙️ Backend Node.js (PM2)</h2>
+            <button class="btn btn--small" id="pm2Refresh">🔄 Refrescar</button>
+          </div>
+          <div id="pm2Status" class="kpis"></div>
+          <div id="pm2Controls" class="mt-12"></div>
+        </div>
+
+        <!-- Fail2ban -->
+        <div class="card mt-16">
+          <div class="row row--space">
+            <h2>🛡️ Fail2ban</h2>
+            <button class="btn btn--small" id="fail2banRefresh">🔄 Actualizar</button>
+          </div>
+          <div id="fail2banStatus"><p class="muted"><span class="spinner"></span> Cargando…</p></div>
+        </div>
+
+        <!-- Visor de logs -->
+        <div class="card mt-16">
+          <div class="row row--space">
+            <h2>📜 Logs de contenedor</h2>
+            <div class="row row--wrap">
+              <select id="logTarget" class="select select--inline">
+                <option value="">— elegir contenedor —</option>
+              </select>
+              <button class="btn btn--small" id="serverLogsRefresh">🔄 Cargar</button>
+              <button class="btn btn--small" id="serverLogsLive">▶ En vivo</button>
+            </div>
+          </div>
+          <pre id="serverLogs" class="logs logs--tall">Selecciona un contenedor para ver sus logs.</pre>
         </div>
       </section>
 
@@ -220,7 +290,7 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
             y cambiar contraseñas.</p>
           <table class="accounts">
             <thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th class="col-actions">Acciones</th></tr></thead>
-            <tbody id="usersTbody"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody>
+            <tbody id="usersTbody"><tr><td colspan="4" class="muted"><span class="spinner"></span> Cargando…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -228,9 +298,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </main>
 
   <!-- Modal: crear usuario admin -->
-  <div id="userCreateModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="userCreateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="userCreateModalTitle">
     <div class="modal__card">
-      <h2>Nuevo usuario del panel</h2>
+      <h2 id="userCreateModalTitle">Nuevo usuario del panel</h2>
       <form id="userCreateForm" autocomplete="off">
         <label for="newUserName">Usuario</label>
         <input id="newUserName" type="text" required pattern="[a-zA-Z0-9._-]{3,32}" placeholder="ej: carlos.operador">
@@ -259,9 +329,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: cambiar contraseña de usuario admin -->
-  <div id="userPwdModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="userPwdModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="userPwdModalTitle">
     <div class="modal__card">
-      <h2>Cambiar contraseña de usuario</h2>
+      <h2 id="userPwdModalTitle">Cambiar contraseña de usuario</h2>
       <p>Usuario: <strong id="userPwdName"></strong></p>
       <form id="userPwdForm" autocomplete="off">
         <label for="userPwdNew">Nueva contraseña</label>
@@ -279,9 +349,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: crear -->
-  <div id="createModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="createModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
     <div class="modal__card">
-      <h2>Crear nuevo buzón</h2>
+      <h2 id="createModalTitle">Crear nuevo buzón</h2>
       <form id="createForm" autocomplete="off">
         <label for="newEmailLocal">Correo</label>
         <div class="email-input">
@@ -306,9 +376,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: cambiar contraseña -->
-  <div id="pwdModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="pwdModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
     <div class="modal__card">
-      <h2>Cambiar contraseña</h2>
+      <h2 id="pwdModalTitle">Cambiar contraseña</h2>
       <p>Cuenta: <strong id="pwdEmail"></strong></p>
       <form id="pwdForm" autocomplete="off">
         <label for="pwdNew">Nueva contraseña</label>
@@ -326,9 +396,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: eliminar -->
-  <div id="delModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="delModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delModalTitle">
     <div class="modal__card">
-      <h2>Eliminar buzón</h2>
+      <h2 id="delModalTitle">Eliminar buzón</h2>
       <p>Esta acción <strong>borra el buzón y todo su correo</strong>. No se puede deshacer.</p>
       <p>Para confirmar, escribe el correo exacto: <strong id="delEmailLabel"></strong></p>
       <form id="delForm" autocomplete="off">
@@ -343,9 +413,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: cuota -->
-  <div id="quotaModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="quotaModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="quotaModalTitle">
     <div class="modal__card">
-      <h2>Definir cuota</h2>
+      <h2 id="quotaModalTitle">Definir cuota</h2>
       <p>Cuenta: <strong id="quotaEmail"></strong></p>
       <form id="quotaForm" autocomplete="off">
         <label for="quotaValue">Tamaño</label>
@@ -361,9 +431,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: vaciar buzón -->
-  <div id="emptyModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="emptyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="emptyModalTitle">
     <div class="modal__card">
-      <h2>Vaciar buzón</h2>
+      <h2 id="emptyModalTitle">Vaciar buzón</h2>
       <p>Esta acción <strong>borra TODOS los correos</strong> del buzón (Inbox, Sent, Drafts, Trash, etc.). El buzón se mantiene activo. No se puede deshacer.</p>
       <p>Para confirmar, escribe el correo exacto: <strong id="emptyEmailLabel"></strong></p>
       <form id="emptyForm" autocomplete="off">
@@ -378,9 +448,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: suspender -->
-  <div id="suspendModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="suspendModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="suspendModalTitle">
     <div class="modal__card">
-      <h2>Suspender buzón</h2>
+      <h2 id="suspendModalTitle">Suspender buzón</h2>
       <p>Cuenta: <strong id="suspendEmail"></strong></p>
       <p>El buzón quedará inaccesible inmediatamente (se cambia la contraseña a una aleatoria). Los correos se preservan. Para reactivar, definirás una contraseña nueva.</p>
       <form id="suspendForm" autocomplete="off">
@@ -394,9 +464,9 @@ docker stats --no-stream mailserver       # CPU / memoria</pre>
   </div>
 
   <!-- Modal: reactivar -->
-  <div id="unsuspendModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="unsuspendModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="unsuspendModalTitle">
     <div class="modal__card">
-      <h2>Reactivar buzón</h2>
+      <h2 id="unsuspendModalTitle">Reactivar buzón</h2>
       <p>Cuenta: <strong id="unsuspendEmail"></strong></p>
       <form id="unsuspendForm" autocomplete="off">
         <label for="unsuspendPwd">Nueva contraseña</label>
