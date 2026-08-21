@@ -8,22 +8,16 @@ Prioridad: 🔴 crítica · 🟠 alta · 🟡 media · 🟢 baja
 
 ## 🔴 Seguridad
 
-### S1. Sacar credenciales hardcoded del repo a `.env` (sin rotación)
+### S1. ✅ Sacar credenciales hardcoded del repo a `.env` (sin rotación)
 
-**Diagnóstico.** En `docker/docker-compose.yml` hay credenciales en texto plano:
+**Resuelto 2026-06-11.** `docker/docker-compose.yml` ya usa `${VARS}` cargados desde `docker/.env` (gitignored, permisos 600). Las credenciales hardcoded (`admin123`, `securepass`, `adminpass`) fueron eliminadas del repo.
+
+**Diagnóstico original.** En `docker/docker-compose.yml` había credenciales en texto plano:
 - Nextcloud admin: `admin / admin123`
 - PostgreSQL: `admin / securepass`
 - Collabora: `admin / adminpass`
 
-> Nota: durante la sesión inicial se compartieron también la contraseña de `sistemas@refacrtb.com.mx` y el API token SMTP de MailerSend. Esa comunicación fue **interna** entre el operador y el asistente, no se expuso externamente, por lo que **no requiere rotación inmediata**. Aun así, sigue siendo buena higiene mantener esos secretos fuera del repo.
-
 **Impacto.** Si el repo se hace público o se filtra, acceso administrativo total a Nextcloud, BD y suite de correo.
-
-**Propuesta.**
-1. Crear `/opt/proyectos/rtb/.env` (fuera de git) con todas las contraseñas actuales.
-2. Referenciarlas en `docker-compose.yml` con `${VAR}` o `env_file:`.
-3. Añadir `.env` al `.gitignore` (ver H3).
-4. Opcional a medio plazo: adoptar Docker Secrets o SOPS para cifrado en repo.
 
 **Esfuerzo.** S.
 
@@ -120,17 +114,17 @@ Prioridad: 🔴 crítica · 🟠 alta · 🟡 media · 🟢 baja
 
 ---
 
-### O3. Sin swap y sin monitoreo externo
+### O3. Sin monitoreo externo (swap ✅ resuelto 2026-06-11)
 
-**Diagnóstico.** 16 GB RAM, 0 B swap originalmente. Un pico de Nextcloud + ClamAV escaneando un correo grande puede causar OOM kill.
+**Swap resuelto 2026-06-11.** Swapfile de 4 GB activo y en `/etc/fstab` (275 MB en uso a 2026-08-21).
 
 No hay alertas externas: ni de disco lleno, ni de servicio caído, ni de cola Postfix saturada, ni de certificado por expirar.
 
 **Impacto.** Caídas no detectadas a tiempo desde el exterior.
 
 **Estado parcial (2026-06-12):**
+- ✅ **Swap**: 4 GB activo en `/etc/fstab` (275 MB en uso a 2026-08-21).
 - ✅ **Panel Servidor** implementado en el dashboard admin (`/admin/` → pestaña 🖥️ Servidor): métricas del host (CPU/RAM/disco/swap/uptime/carga), estado de los 8 contenedores con CPU%/RAM, estado PM2, jails fail2ban con IPs baneadas y visor de logs en vivo (SSE). Útil para diagnóstico activo desde el panel.
-- ⚠️ **Swap**: el servidor tiene 4 GB de swap configurado (no 0 como se documentó originalmente — verificar con `free -h`). El panel Servidor muestra aviso visual si swap = 0.
 - ❌ **Alertas proactivas** (Uptime Kuma / Netdata) siguen pendientes — el panel requiere que alguien lo abra; no notifica solo.
 
 **Pendiente.**
@@ -355,10 +349,10 @@ Sin CORS (todo same-origin vía nginx), `SESSION_SECRET` obligatorio en producci
 ## Plan sugerido por sprints
 
 ### Sprint 1 (esta semana) — Seguridad inmediata
-- [ ] S1 — mover credenciales de compose a `.env`
+- [x] S1 — mover credenciales de compose a `.env` ✅ (2026-06-11)
 - [ ] S2 — fail2ban `multiport` + ajustar bantime
 - [ ] O2 — eliminar `api_rtb` o moverlo a `api/app/`
-- [ ] O3 — añadir swap (5 min)
+- [x] O3 — añadir swap ✅ (2026-06-11); monitoreo/alertas pendiente
 - [x] **F1 — interfaz web para gestión de buzones de correo** ✅
 
 ### Sprint 2 (próximas 2 semanas) — Resiliencia

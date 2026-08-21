@@ -123,7 +123,7 @@ Documento técnico de los componentes desplegados en `217.154.101.174` (IONOS, M
 ## Componente web (nginx + frontend + backend)
 
 - **Frontend**: HTML/CSS estático en `web/RTB_Web/frontend/`, montado read-only en `rtb_web` y servido en `/`. Incluye panel de administración SPA vanilla JS en `frontend/admin/` (index.html + admin.js + admin.css).
-- **Backend**: Express 5 corriendo bajo **PM2 nativo** (no en Docker), proceso `rtb_backend`. Escucha en `:3000` del host. nginx hace `proxy_pass http://172.17.0.1:3000/api/` (gateway de Docker → host).
+- **Backend**: Express 5 corriendo bajo **PM2 nativo** (no en Docker), proceso `rtb_backend`. Escucha en `:3000` del host. nginx hace `proxy_pass http://172.25.0.1:3000/api/` (gateway de la red `rtbnet` → host).
 - **Endpoints**:
   - `POST /api/contacto` — recibe formulario, genera PDF con Puppeteer y lo sube a Nextcloud vía WebDAV.
   - `/api/admin/mail/*` — gestión de buzones de correo (`mailAdminRoutes.js`, `mailOpsRoutes.js`); requiere sesión.
@@ -186,11 +186,10 @@ sin uso real. El directorio `api/` permanece en el repo pero el contenedor ya no
 ## Problemas conocidos (actualizado 2026-06-12)
 
 1. ~~`api_rtb` en crash-loop~~ — **eliminado 2026-06-11**.
-2. **Secretos en texto plano en docker-compose** — `NEXTCLOUD_ADMIN_PASSWORD`, `POSTGRES_PASSWORD`, `collabora password` en `docker/docker-compose.yml`. Pendiente rotación a Docker secrets o archivo `.env` gitignored.
+2. ~~**Secretos en texto plano en docker-compose**~~ — **resuelto 2026-06-11**: `docker/docker-compose.yml` usa `${VARS}` desde `docker/.env` (gitignored, 600).
 3. **fail2ban** — ✅ resuelto (2026-06-11): `banaction = nftables-multiport` (antes `allports` bloqueaba ICMP/HTTP/HTTPS y daba falsa impresión de "servidor caído"). bantime default 1h; jail `custom` mantiene 180d. Desde 2026-06-12 el ban/unban de IPs también se hace desde el panel (pestaña Servidor → Fail2ban, solo admin).
-4. **Sin swap** — 16 GB RAM, 0 swap. Un pico de OOM puede tumbar servicios. Pendiente agregar 4 GB de swapfile.
+4. ~~**Sin swap**~~ — **resuelto 2026-06-11**: swapfile de 4 GB activo y en `/etc/fstab` (275 MB en uso a 2026-08-21).
 5. **Sin backups automatizados** — `mailserver/mail-data/` y `nextcloud/data/` no tienen snapshot/offsite. Riesgo crítico de pérdida de datos.
-6. **Sin swap** — 16 GB RAM y 0 B de swap; un pico puede tumbar servicios.
 7. **Sin IPv6** — clientes IPv6-only no pueden alcanzar el servidor; clientes dual-stack pueden tener latencia adicional por timeout de IPv6.
 8. **Carpetas vacías versionadas** — `admin/`, `ventas/`, `finanzas/`, `logistica/`, `nube/`, `app/`, `api/app/` están vacías; ruido en el repo.
 9. **`backend/database/schema.sql` y `seed.js` vacíos** — el backend no usa BD, pero los archivos sugieren intención abandonada.
