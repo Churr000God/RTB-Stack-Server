@@ -126,3 +126,19 @@ Sólo inventario; los detalles y riesgos viven en los documentos enlazados.
 Root SSH interactivo deshabilitado · llave de backup con `from=`+`command=rrsync -ro`+`restrict` (mínimo privilegio ejemplar) ·
 permisos `.ssh` correctos · llave privada de `rtbadmin` con passphrase · fail2ban activo · UFW deny-by-default ·
 `kbdinteractive`/`permitemptypasswords` = no · un solo UID 0 · `docker.sock` montado solo en Portainer · sin cron de usuario sospechoso.
+
+---
+
+## Adenda — 23-sep-2026 (fuera del alcance de la auditoría original del 9-jun)
+
+Esta sección **no** es parte de la auditoría de solo-lectura del 9-jun-2026; registra un cambio
+real posterior. Detalle completo en RTB-TIN-16 (bóveda Nextcloud Sistemas) y CTRL-SEC-02.
+
+- **`rtbadmin` pasa de 1 a 2 llaves SSH autorizadas.** Se agregó `refacrtb_rtbadmin` (ed25519)
+  para trabajo de automatización/soporte, adicional a la RSA-4096 original.
+- ⚠️ **Nueva debilidad introducida:** a diferencia de la llave original (con passphrase, ver
+  "Lo que está bien" arriba), la llave nueva **no tiene passphrase** — quedó así deliberadamente
+  para no depender de un agente SSH en cada conexión, pero reduce la protección si el archivo de
+  la llave privada se filtra. Mismo riesgo de fondo que A2: `rtbadmin` sigue siendo
+  `sudo NOPASSWD: ALL` + grupo `docker` (root efectivo), así que cualquiera de las dos llaves ya
+  equivale a comprometer el host entero. Considerar como extensión de A2 al priorizar remediación.

@@ -336,6 +336,36 @@ ssh-add ~/.ssh/id_ed25519
 source ~/.bashrc
 ```
 
+## Certificados TLS (Certbot)
+
+Certbot corre en el **host** (no en Docker). Renovación automática vía `certbot.timer`
+(systemd, dos veces al día) → `certbot.service` → `certbot -q renew`.
+
+```bash
+sudo certbot certificates                          # vigencia real de todos los certs
+systemctl list-timers certbot.timer                # confirma que el timer sigue vivo
+echo | openssl s_client -servername <host> -connect <host>:443 | openssl x509 -noout -dates -subject
+```
+
+**Importante:** nginx sirve desde el contenedor `rtb_web`, con `/etc/letsencrypt` montado `ro`.
+El contenedor **no relee los certificados solo** — necesita `docker exec rtb_web nginx -s reload`.
+Desde el 23-sep-2026 existe un deploy-hook que lo hace automático:
+
+```
+/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh   # docker exec rtb_web nginx -s reload
+```
+
+Certbot ejecuta todos los scripts de `renewal-hooks/deploy/` tras cualquier renovación exitosa,
+de cualquier dominio — no hace falta declararlo por certificado.
+
+Config real de nginx (vhosts, `server_name`, certificados por dominio):
+`/opt/proyectos/rtb/web/nginx/default.conf` (montada en `rtb_web:/etc/nginx/conf.d/default.conf`,
+`ro`). El directorio es de `root`; el archivo `default.conf` es de `rtbadmin` (editable sin sudo,
+pero sin poder crear archivos nuevos al lado, p. ej. para backup con timestamp).
+
+Ver RTB-TIN-16 (bóveda Nextcloud Sistemas) para el incidente del 23-sep-2026: dominio apex
+(`refacrtb.com.mx` sin `www`) sin certificado propio, y falta de este deploy-hook.
+
 ## Troubleshooting frecuente
 
 ### "No me puedo conectar al correo desde Thunderbird/Outlook"
@@ -354,6 +384,18 @@ source ~/.bashrc
 1. `docker logs rtb_web --tail 20`
 2. `curl -kI https://www.refacrtb.com.mx`
 3. Si nginx OK pero `/api/` falla → revisar `pm2 list` y `pm2 logs rtb_backend`.
+
+### "El navegador marca el certificado como vencido/inválido"
+
+**No asumir expiración.** Antes que nada: `sudo certbot certificates`. Si sigue vigente, es casi
+seguro uno de estos dos (ver RTB-TIN-16):
+
+1. El host visitado no está en el SAN del certificado que nginx le sirve (p. ej. entrar sin
+   `www.`) → agregar el dominio al `server_name` correcto y expandir/emitir el certificado que
+   lo cubra.
+2. Certbot renovó pero nginx nunca se recargó → revisar que
+   `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh` exista y sea ejecutable; si no,
+   `docker exec rtb_web nginx -s reload` a mano resuelve el síntoma inmediato.
 
 ### "Nextcloud lento o no responde"
 
