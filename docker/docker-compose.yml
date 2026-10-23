@@ -26,7 +26,7 @@ services:
       - rtbnet
 
   nextcloud:
-    image: nextcloud:31       # 31.0.14 (Jun-2026); :31 recibe parches 31.x (B5.4/N7)
+    image: nextcloud:31.0.14-php8.3.36-rtb   # build local 23-oct-2026: receta oficial 31.0.14 sobre PHP 8.3.36 (PHP2Shell CVE-2026-109618/109619); :31 es EOL. Receta en ~/build/nc31
     container_name: nextcloud
     volumes:
       - ../nextcloud/data:/var/www/html
