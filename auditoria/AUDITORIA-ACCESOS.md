@@ -142,3 +142,30 @@ real posterior. Detalle completo en RTB-TIN-16 (bóveda Nextcloud Sistemas) y CT
   la llave privada se filtra. Mismo riesgo de fondo que A2: `rtbadmin` sigue siendo
   `sudo NOPASSWD: ALL` + grupo `docker` (root efectivo), así que cualquiera de las dos llaves ya
   equivale a comprometer el host entero. Considerar como extensión de A2 al priorizar remediación.
+
+---
+
+## Actualización 2026-11-25 · A2 atendido (pendiente P-034)
+
+Cambio aprobado por Diego el 25-nov-2026.
+
+- **NOPASSWD quitado.** El drop-in `/etc/sudoers.d/rtbadmin-nopasswd` se movió a `/root/rtbadmin-nopasswd.bak-20261125`.
+  - `rtbadmin` ahora usa la regla `%sudo ALL=(ALL:ALL) ALL`, que pide contraseña.
+  - Se queda `rsync-backup` (`rtbadmin ALL=(root) NOPASSWD: /usr/bin/rsync`), que usa el respaldo del NAS. En los últimos 30 días ese fue el único uso automático de sudo.
+  - Pruebas hechas:
+    - `sudo -n true` pide contraseña;
+    - `sudo -n rsync --version` funciona;
+    - Diego confirmó `sudo -v` con su contraseña;
+    - `visudo -c` responde «parsed OK».
+- **El grupo `docker` se queda.** Se acepta como riesgo documentado (decisión de Diego, 22-oct-2026). Pertenecer a ese grupo sigue equivaliendo a ser root, así que A2 queda reducido, no eliminado.
+- **Llaves SSH de `rtbadmin`.** Había 4 y quedan 3. El respaldo del archivo anterior es `~/.ssh/authorized_keys.bak-20261125`.
+  - Se quitó la RSA-4096 `dhgui@XREX_LAP`, que es de la laptop vieja.
+  - Quedan:
+    - `rtbadmin@rtb-20260611` (ed25519): la tablet de Diego, **sin confirmar**;
+    - `nas-rtb-01-backup` (ed25519): el respaldo del NAS;
+    - `rtbadmin@refacrtb-20260923` (ed25519): la laptop actual.
+- **Siguen abiertos:**
+  - A4 (no hay `AllowUsers`/`AllowGroups`);
+  - `PasswordAuthentication yes` en sshd;
+  - confirmar de quién es la llave `rtb-20260611`.
+- **Consecuencia:** las sesiones de Claude ya no pueden usar sudo sin la contraseña de Diego.
